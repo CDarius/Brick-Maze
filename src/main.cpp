@@ -86,9 +86,13 @@ void loop() {
     //mainDisplay.setNoGameMode();
     //delay(10000);
     mainDisplay.setCountdownMode(millis() + 6000, 6000, 5000); // Set a countdown of 6 seconds
-    delay(7000); // Wait a moment before starting the countdown
-    mainDisplay.setGameOverMode();
-    delay(3000);
+    while (!mainDisplay.isModeDone()) {
+        // Wait for countdown to finish
+        delay(50);
+    }
+    //mainDisplay.setGameOverMode();
+    mainDisplay.setGameWinMode();
+    delay(20000);
 
     /*
     RgbColor gradientColors[8];

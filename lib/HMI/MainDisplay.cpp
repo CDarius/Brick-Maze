@@ -6,6 +6,7 @@ void MainDisplay::setNoGameMode() {
         return; // No change
 
     currentMode = newMode;
+    modeDone = false;
 
     // Cancel current ongoing mode loop
     if (cancelToken != nullptr) {
@@ -19,6 +20,7 @@ void MainDisplay::setCountdownMode(unsigned long endTimeMs, uint32_t durationMs,
         return; // No change
 
     currentMode = newMode;
+    modeDone = false;
 
     // Store countdown parameters
     countdownEndTimeMs = endTimeMs;
@@ -37,11 +39,26 @@ void MainDisplay::setGameOverMode() {
         return; // No change
 
     currentMode = newMode;
+    modeDone = false;
 
     // Cancel current ongoing mode loop
     if (cancelToken != nullptr) {
         cancelToken->cancel();
     }
+}
+
+void MainDisplay::setGameWinMode() {
+    uint8_t newMode = MAIN_DISPLAY_MODE_GAME_WIN;
+    if (newMode == currentMode) 
+        return; // No change
+        
+    currentMode = newMode;
+    modeDone = false;
+
+    // Cancel current ongoing mode loop
+    if (cancelToken != nullptr) {
+        cancelToken->cancel();
+    }   
 }
 
 void MainDisplay::updateLoop() {
@@ -59,6 +76,10 @@ void MainDisplay::updateLoop() {
 
             case MAIN_DISPLAY_MODE_GAME_OVER:
                 gameOverUpdateLoop();
+                break;
+
+            case MAIN_DISPLAY_MODE_GAME_WIN:
+                gameWinUpdateLoop();
                 break;
         }
     }   
@@ -190,6 +211,10 @@ void MainDisplay::countdownUpdateLoop() {
                 seconds = remainingSeconds;
                 audioPlayer.play(AUDIO_FILE_WARNING_BEEP);
             }
+
+            if (remainingTimeMs == 0) {
+                modeDone = true; // Signal that countdown has finished
+            }
         }
 
         delay(MAIN_DISPLAY_MAX_FPS_MS); // Limit update rate to max FPS
@@ -219,10 +244,56 @@ void MainDisplay::gameOverUpdateLoop() {
     //audioPlayer.play(AUDIO_FILE_GAME_OVER);
     audioPlayer.play(AUDIO_FILE_GAME_OVER);
     imageTransitionAnimation.horizontalCenterTransition(_buffer1, _buffer2, COLOR_RED, 300, localCancelToken);
+    modeDone = true; // Signal that game over animation has finished
 
     // Wait in this loop until the mode changes to avoid to repeat the animation
     while (!localCancelToken.isCancelled()) {        
         delay(20);
+    }
+    cancelToken = nullptr; // Clear cancel token reference when exiting function
+}
+
+void MainDisplay::gameWinUpdateLoop() {
+    CancelToken localCancelToken;
+    cancelToken = &localCancelToken;
+
+    RgbColor _buffer1[TOTAL_LEDS];
+    RgbColor _buffer2[TOTAL_LEDS];
+
+    // Capture current display state in buffer1 to use as starting point for the transition animation
+    display.copyCanvasTo(_buffer1);
+
+    // Crate color gradients for texts
+    RgbColor greenYellowMirrorGradient[ANIM_TEXT_FONT_HEIGHT];
+    display.mirroredColorGradient(COLOR_GREEN, COLOR_YELLOW, greenYellowMirrorGradient, ANIM_TEXT_FONT_HEIGHT);
+
+    // Draw "YOU WIN!" on the display and copy it to buffer2
+    display.fill(COLOR_MAGENTA.Dim(64)); // Dimmed magenta background for better contrast with red/yellow text
+    display.drawCenteredString(0, "YOU WIN!", greenYellowMirrorGradient, FONT_6x8);
+    display.copyCanvasTo(_buffer2);
+
+    audioPlayer.play(AUDIO_FILE_GAME_WIN);
+    imageTransitionAnimation.horizontalCenterTransition(_buffer1, _buffer2, COLOR_GREEN, 300, localCancelToken);
+
+    // Wait in this loop until the mode changes to avoid to repeat the animation
+    while (!localCancelToken.isCancelled()) {
+        // Slowly cycle colors of the "YOU WIN!" text to create a dynamic effect while waiting for mode change
+        RgbColor last = greenYellowMirrorGradient[ANIM_TEXT_FONT_HEIGHT - 1];
+        RgbColor newColor;
+        for(int i = ANIM_TEXT_FONT_HEIGHT - 1; i > 0; i--) {        
+            greenYellowMirrorGradient[i] = greenYellowMirrorGradient[i - 1];
+        }
+        greenYellowMirrorGradient[0] = last;
+        display.fill(COLOR_MAGENTA.Dim(64)); // Dimmed magenta background for better contrast with red/yellow text
+        display.drawCenteredString(0, "YOU WIN!", greenYellowMirrorGradient, FONT_6x8);
+        display.show();
+
+        if (!modeDone) {
+            if (!audioPlayer.isPlaying()) {
+                modeDone = true; // Signal that game win animation has finished when audio finishes playing
+            }
+        }
+        delay(50);
     }
     cancelToken = nullptr; // Clear cancel token reference when exiting function
 }

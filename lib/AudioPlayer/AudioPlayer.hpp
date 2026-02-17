@@ -7,6 +7,7 @@
 
 #define AUDIO_MAX_VOLUME 21
 
+#define AUDIO_FILE_GAME_WIN     "/game-win.wav"
 #define AUDIO_FILE_GAME_OVER    "/game-over.wav"
 #define AUDIO_FILE_WARNING_BEEP "/warning-beep.wav"
 

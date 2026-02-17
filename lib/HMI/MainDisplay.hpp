@@ -12,6 +12,7 @@
 #define MAIN_DISPLAY_MODE_COUNTDOWN 1
 #define MAIN_DISPLAY_MODE_NO_GAME   2
 #define MAIN_DISPLAY_MODE_GAME_OVER 3
+#define MAIN_DISPLAY_MODE_GAME_WIN  4
 
 class MainDisplay {
 private:
@@ -21,6 +22,7 @@ private:
     ImageTransitionAnimation& imageTransitionAnimation;
 
     uint8_t currentMode;
+    bool modeDone;
     CancelToken* cancelToken;
 
     // Countdown mode properties
@@ -32,6 +34,7 @@ private:
     void noGameUpdateLoop();
     void countdownUpdateLoop();
     void gameOverUpdateLoop();
+    void gameWinUpdateLoop();
 public:
     MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display, TextAnimation& textAnimation, ImageTransitionAnimation& imageTransitionAnimation) 
         : audioPlayer(audioPlayer), display(display), textAnimation(textAnimation), imageTransitionAnimation(imageTransitionAnimation) {
@@ -41,6 +44,10 @@ public:
     void setNoGameMode();
     void setCountdownMode(unsigned long endTimeMs, uint32_t durationMs, uint32_t criticalThresholdMs);
     void setGameOverMode();
-
+    void setGameWinMode();
     void updateLoop();
+
+    bool isModeDone() const {
+        return modeDone;
+    }
 };
