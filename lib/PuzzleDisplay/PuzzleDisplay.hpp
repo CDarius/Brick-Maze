@@ -6,7 +6,7 @@
 // Define the specifications of the display
 constexpr uint16_t PANEL_WIDTH = 8;
 constexpr uint16_t PANEL_HEIGHT = 8;
-constexpr uint16_t PANEL_COUNT = 6;
+constexpr uint16_t PANEL_COUNT = 8;
 constexpr uint16_t TOTAL_WIDTH = PANEL_WIDTH * PANEL_COUNT; // 64
 constexpr uint16_t TOTAL_LEDS = TOTAL_WIDTH * PANEL_HEIGHT; // 512
 
