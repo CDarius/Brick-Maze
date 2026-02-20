@@ -6,5 +6,12 @@
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 #define PUZZLE_DISPLAY_PIXEL_PIN 2
 #else
-#define PUZZLE_DISPLAY_PIXEL_PIN 26
+#define I2C_SDA                     26
+#define I2C_SCL                     32
+
+#define PUZZLE_DISPLAY_PIXEL_PIN    23
+
+#define X_SERVO_PIN                 21
+#define Y_SERVO_PIN                 25
 #endif
+

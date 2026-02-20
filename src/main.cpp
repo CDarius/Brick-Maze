@@ -1,7 +1,12 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include <SPIFFS.h>
 
 #include <PinsDefinitions.h>
+
+#include <HardwareServo.hpp>
+#include <M5UnitPbHub.hpp>
+#include <Button.hpp>
 
 #include <AudioPlayer.hpp>
 #include <PuzzleDisplay.hpp>
@@ -11,6 +16,11 @@
 
 #include <CancelToken.hpp>
 
+HardwareServo xServo(X_SERVO_PIN, 0, -180, 180, 500, 2500);
+HardwareServo yServo(Y_SERVO_PIN, 0, -180, 180, 500, 2500);
+
+M5UnitPbHub pbHub(Wire);
+
 AudioPlayer audioPlayer(1); // Use I2S port 1. Display uses I2S0 (ESP32) or LCD (ESP32-S3).
 
 PuzzleDisplay display(PUZZLE_DISPLAY_PIXEL_PIN);
@@ -18,18 +28,46 @@ TextAnimation textAnimation(display);
 ImageTransitionAnimation imageTransitionAnimation(display);
 MainDisplay mainDisplay(audioPlayer, display, textAnimation, imageTransitionAnimation);
 
-void setup() {
-    Serial.begin(115200);
+void showInitFailed(const char* displayMessage, const char* serialMessage) {
+    display.clear();
+    String displayMessageStr(displayMessage);
+    displayMessageStr.toUpperCase();
+    display.drawString(0,0, displayMessageStr, COLOR_RED, FONT_4x6);
+    display.show();
+    while (true)
+    {
+        Serial.println(serialMessage);
+        delay(500);
+    }
+}
 
+void setup() {
+    // Initialize serial communication for debugging
+    Serial.begin(115200);
+   
     // Initialize the display
     display.begin();
+    
+    // Initialize I2C bus & devices
+    Wire.begin(I2C_SDA, I2C_SCL);
+    if (!pbHub.begin()) {
+        showInitFailed("PB Hub Init Fail", "Failed to initialize M5 Unit PB Hub");
+    }
+
+    // Initialize X & Y servos
+    if (!xServo.begin()) {
+        showInitFailed("X Servo Init Fail", "Failed to initialize X servo pin with LedC peripheral");
+    }
+
+    if (!yServo.begin()) {
+        showInitFailed("Y Servo Init Fail", "Failed to initialize Y servo pin with LedC peripheral");
+    }
 
     // Initialize SPIFFS
     if (!SPIFFS.begin(true)) {
-        Serial.println("SPIFFS Mount Failed");
+        showInitFailed("SPIFFS Mount Fail", "SPIFFS Mount Failed");
         return;
     }
-    Serial.println("SPIFFS mounted successfully");
 
     // List files in SPIFFS
     File root = SPIFFS.open("/");
@@ -67,51 +105,14 @@ void setup() {
         nullptr,           // Parameter
         1,                 // Priority
         nullptr,           // Task handle
-        1                  // Core 1
+        0                  // Core 0
     );
+
+    Serial.println("Initialization complete. Entering main loop.");
 }
 
 
+uint16_t old_lux;
 void loop() {
-    unsigned long startTime = millis();
-    unsigned long endTime = startTime + 30000; // Run for 30 seconds
-    unsigned long currentTime = startTime;
-    
-    uint16_t textWidth = display.getStringWidth("99.9", FONT_6x8, true); // Pre-calculate width for centering
-    uint8_t xPos = (display.getWidth() - textWidth) / 2; // Center the text
-
-
-
-    Serial.println("In loop");
-    //mainDisplay.setNoGameMode();
-    //delay(10000);
-    mainDisplay.setCountdownMode(millis() + 6000, 6000, 5000); // Set a countdown of 6 seconds
-    while (!mainDisplay.isModeDone()) {
-        // Wait for countdown to finish
-        delay(50);
-    }
-    //mainDisplay.setGameOverMode();
-    mainDisplay.setGameWinMode();
-    delay(20000);
-
-    /*
-    RgbColor gradientColors[8];
-    display.mirroredColorGradient(RgbColor(255, 0, 0), RgbColor(255, 255, 0), gradientColors, 8);
-    
-    while (currentTime < endTime) {
-        unsigned long remainingTime = endTime - currentTime;
-        float remainingSeconds = remainingTime / 1000.0;
-        // Display the countdown timer
-        display.fill(RgbColor(0, 127, 127)); // Clear the canvas azure
-        String timerText = String(remainingSeconds, 1); // Show 1 decimal place
-        if (timerText.length() < 4) {
-            timerText = " " + timerText; // Pad with space for alignment
-        }
-        display.drawString(xPos, 0, timerText, gradientColors, FONT_6x8, true); // Yellow text
-        display.show();
-
-        delay(50); // Update every 50ms
-        currentTime = millis();
-    }
-    */
+    delay(10);
 }
