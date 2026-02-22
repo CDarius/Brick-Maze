@@ -17,7 +17,7 @@
 #include <CancelToken.hpp>
 
 HardwareServo xServo(X_SERVO_PIN, 0, -180, 180, 500, 2500);
-HardwareServo yServo(Y_SERVO_PIN, 0, -180, 180, 500, 2500);
+HardwareServo yServo(Y_SERVO_PIN, 1, -180, 180, 500, 2500);
 
 M5UnitPbHub pbHub(Wire);
 
@@ -44,9 +44,11 @@ void showInitFailed(const char* displayMessage, const char* serialMessage) {
 void setup() {
     // Initialize serial communication for debugging
     Serial.begin(115200);
-   
+    // Initialize serial comunication with the remote controller
+    Serial1.begin (115200, SERIAL_8N1, REMOTE_CONTROLLER_UART_RX, REMOTE_CONTROLLER_UART_TX, false);
+    Serial1.setTimeout(0);
     // Initialize the display
-    display.begin();
+    display.begin(); 
     
     // Initialize I2C bus & devices
     Wire.begin(I2C_SDA, I2C_SCL);
@@ -82,7 +84,7 @@ void setup() {
     audioPlayer.begin(I2S_BCLK, I2S_LRC, I2S_DOUT);
     //audioPlayer.setVolume(2); // Set initial volume (0-21)
 
-    // Create audio loop task on core 1 with high priority
+    // Create audio loop task on core 0 with high priority
     xTaskCreatePinnedToCore(
         [](void* param) {
             audioPlayer.audioLoop();
@@ -95,7 +97,7 @@ void setup() {
         0                   // Core 0
     );
 
-    // Create a task to run mainDisplay.updateLoop() on core 1
+    // Create a task to run the HMI update loop on core 0
     xTaskCreatePinnedToCore(
         [](void* param) {
             mainDisplay.updateLoop();
@@ -112,7 +114,21 @@ void setup() {
 }
 
 
-uint16_t old_lux;
+uint16_t counter = 0;
 void loop() {
-    delay(10);
+    Serial.println("Main looop running...");
+    xServo.setPulseWidth(1000);
+    delay(1000);
+    xServo.setPulseWidth(1500);
+    delay(1000);
+    xServo.setPulseWidth(2000);
+    delay(1000);
+    /*
+    mainDisplay.setCountdownMode(millis() + 10000, 10000, 5000); // Example: 10 second countdown with critical threshold at 3 seconds
+    delay(10000);
+    audioPlayer.play(AUDIO_FILE_GAME_WIN);
+    delay(10000);
+    
+    delay(5000);
+    */
 }

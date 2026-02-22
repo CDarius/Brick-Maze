@@ -54,8 +54,12 @@ public:
 private:
     // Common PWM parameters for servos
     static const int PWM_FREQUENCY = 50;      // Standard frequency for servos (50 Hz)
-    static const int PWM_RESOLUTION = 16;     // 16-bit resolution for fine control
-    static const int MAX_DUTY_CYCLE = (1 << PWM_RESOLUTION) - 1; // 65535
+    #if defined(CONFIG_IDF_TARGET_ESP32S3)
+        static const int PWM_RESOLUTION = 14;     // 14-bit resolution for fine control
+    #else
+        static const int PWM_RESOLUTION = 16;     // 16-bit resolution for fine control
+    #endif
+    static const int MAX_DUTY_CYCLE = (1 << PWM_RESOLUTION) - 1; // Maximum duty cycle value based on resolution
     static const int PWM_PERIOD_US = 1000000 / PWM_FREQUENCY; // Period in microseconds (20ms for 50Hz)
 
     uint8_t pin;

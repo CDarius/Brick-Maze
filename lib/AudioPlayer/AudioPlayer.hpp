@@ -88,7 +88,7 @@ class AudioPlayer {
                     audio.loop();
                     xSemaphoreGive(_mutex);
                 }
-                delay(1); // Yield to other tasks. The audio library needs to be called frequently.
+                delay(5); // Yield to other tasks. The audio library needs to be called frequently.
             }
 
         }
