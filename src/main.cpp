@@ -47,9 +47,14 @@ void setup() {
     // Initialize serial comunication with the remote controller
     Serial1.begin (115200, SERIAL_8N1, REMOTE_CONTROLLER_UART_RX, REMOTE_CONTROLLER_UART_TX, false);
     Serial1.setTimeout(0);
+
     // Initialize the display
     display.begin(); 
     
+    // Initialize IO pins
+    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(BALL_DROP_PIN, INPUT_PULLUP);    
+
     // Initialize I2C bus & devices
     Wire.begin(I2C_SDA, I2C_SCL);
     if (!pbHub.begin()) {
@@ -117,12 +122,15 @@ void setup() {
 uint16_t counter = 0;
 void loop() {
     Serial.println("Main looop running...");
-    xServo.setPulseWidth(1000);
-    delay(1000);
-    xServo.setPulseWidth(1500);
-    delay(1000);
-    xServo.setPulseWidth(2000);
-    delay(1000);
+
+    Serial.print("Ball drop pin: ");
+    Serial.println(digitalRead(BALL_DROP_PIN));
+    if (digitalRead(BALL_DROP_PIN))
+        digitalWrite(LED_BUILTIN, HIGH);
+    else
+        digitalWrite(LED_BUILTIN, LOW);
+
+    delay(100);
     /*
     mainDisplay.setCountdownMode(millis() + 10000, 10000, 5000); // Example: 10 second countdown with critical threshold at 3 seconds
     delay(10000);
