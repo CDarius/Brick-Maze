@@ -3,10 +3,13 @@
 #include <SPIFFS.h>
 
 #include <PinsDefinitions.h>
+#include <Config.hpp>
 
 #include <HardwareServo.hpp>
 #include <M5UnitPbHub.hpp>
 #include <Button.hpp>
+
+#include <Controller.hpp>
 
 #include <AudioPlayer.hpp>
 #include <PuzzleDisplay.hpp>
@@ -20,6 +23,9 @@ HardwareServo xServo(X_SERVO_PIN, 0, -180, 180, 500, 2500);
 HardwareServo yServo(Y_SERVO_PIN, 1, -180, 180, 500, 2500);
 
 M5UnitPbHub pbHub(Wire);
+
+SerialComm controllerSerialComm(Serial1);
+Controller controller(controllerSerialComm);
 
 AudioPlayer audioPlayer(1); // Use I2S port 1. Display uses I2S0 (ESP32) or LCD (ESP32-S3).
 
@@ -89,6 +95,11 @@ void setup() {
     audioPlayer.begin(I2S_BCLK, I2S_LRC, I2S_DOUT);
     //audioPlayer.setVolume(2); // Set initial volume (0-21)
 
+    // Initialized the controller and wait for serial communication to be established with it
+    if (!controller.begin(getDefaultControllerConfig())) {
+        showInitFailed("Controller Init Fail", "Failed to initialize controller");
+    }
+
     // Create audio loop task on core 0 with high priority
     xTaskCreatePinnedToCore(
         [](void* param) {
@@ -107,12 +118,25 @@ void setup() {
         [](void* param) {
             mainDisplay.updateLoop();
         },
-        "MainDisplayTask", // Task name
-        8192,              // Stack size
-        nullptr,           // Parameter
-        1,                 // Priority
-        nullptr,           // Task handle
-        0                  // Core 0
+        "MainDisplayTask",  // Task name
+        8192,               // Stack size
+        nullptr,            // Parameter
+        1,                  // Priority
+        nullptr,            // Task handle
+        0                   // Core 0
+    );
+
+    // Create a task to run controller update loop on core 1 with high priority to ensure responsive control
+    xTaskCreatePinnedToCore(
+        [](void* param) {
+            controller.update();
+        },
+        "ControllerTask",   // Task name
+        4096,               // Stack size
+        nullptr,            // Parameter
+        1,                  // Priority
+        nullptr,            // Task handle
+        1                   // Core 1
     );
 
     Serial.println("Initialization complete. Entering main loop.");
@@ -130,7 +154,19 @@ void loop() {
     else
         digitalWrite(LED_BUILTIN, LOW);
 
-    delay(100);
+    delay(500);
+
+    float x, y;
+    bool buttonPressed;
+    if (controller.getStatus(x, y, buttonPressed)) {
+        Serial.printf("Controller status - X: %.2f, Y: %.2f, Button: %s\n", x, y, buttonPressed ? "Pressed" : "Released");
+    } else {
+        Serial.println("Controller not active or communication lost.");
+    }
+    uint16_t updateRate = controller.getUpdateRate();
+    controller.setUpdateRate(updateRate); // Just to test sending parameters to the controller
+    controller.setIsEnabled(true); // Just to test sending parameters to the controller
+    
     /*
     mainDisplay.setCountdownMode(millis() + 10000, 10000, 5000); // Example: 10 second countdown with critical threshold at 3 seconds
     delay(10000);
