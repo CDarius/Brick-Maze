@@ -1,13 +1,10 @@
 #pragma once
 
 #include <Arduino.h>
+
+#include "ControllerConfig.h"
 #include <SerialComm.hpp>
 #include <SerialCommandReader.hpp>
-
-struct ControllerConfig {
-    float maxAngle;         // Maximum angle in range [0, 1]
-    uint16_t updateRateMs;  // Update rate in milliseconds
-};
 
 /**
  * Controller class manages the state and communication of the remote controller. It handles receiving 
