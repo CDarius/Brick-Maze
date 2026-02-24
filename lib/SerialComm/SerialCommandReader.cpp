@@ -39,11 +39,15 @@ bool SerialCommandReader::getFloat(float& value) {
     if (token.length() == 0) {
         return false;
     }
-    value = token.toFloat();
-    // toFloat() returns 0.0 on failure, check if it's actually zero or error
-    if (value == 0.0f && token != "0" && token != "0.0") {
+    const char* str = token.c_str();
+    char* end;
+    float read_value = strtof(str, &end);
+    // strtof() sets end to the first unparsed character
+    // If no characters were parsed, end == str (parsing failure)
+    if (end == str) {
         return false;
     }
+    value = read_value;
     return true;
 }
 

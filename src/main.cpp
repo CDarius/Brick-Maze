@@ -10,6 +10,7 @@
 #include <Button.hpp>
 
 #include <Controller.hpp>
+#include <Game.hpp>
 
 #include <AudioPlayer.hpp>
 #include <PuzzleDisplay.hpp>
@@ -26,6 +27,7 @@ M5UnitPbHub pbHub(Wire);
 
 SerialComm controllerSerialComm(Serial1);
 Controller controller(controllerSerialComm);
+Game game(xServo, yServo, BALL_DROP_PIN);
 
 AudioPlayer audioPlayer(1); // Use I2S port 1. Display uses I2S0 (ESP32) or LCD (ESP32-S3).
 
@@ -33,6 +35,8 @@ PuzzleDisplay display(PUZZLE_DISPLAY_PIXEL_PIN);
 TextAnimation textAnimation(display);
 ImageTransitionAnimation imageTransitionAnimation(display);
 MainDisplay mainDisplay(audioPlayer, display, textAnimation, imageTransitionAnimation);
+
+GameLevel nextGameLevel = GameLevel::EASY;
 
 void showInitFailed(const char* displayMessage, const char* serialMessage) {
     display.clear();
@@ -47,6 +51,14 @@ void showInitFailed(const char* displayMessage, const char* serialMessage) {
     }
 }
 
+bool isStopButtonPressed() {
+    return pbHub.digitalRead(0, 1) == LOW;
+}
+
+bool isStartButtonPressed() {
+    return pbHub.digitalRead(0, 0) == LOW;
+}
+
 void setup() {
     // Initialize serial communication for debugging
     Serial.begin(115200);
@@ -59,7 +71,6 @@ void setup() {
     
     // Initialize IO pins
     pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(BALL_DROP_PIN, INPUT_PULLUP);    
 
     // Initialize I2C bus & devices
     Wire.begin(I2C_SDA, I2C_SCL);
@@ -93,12 +104,13 @@ void setup() {
 
     // Initialize Audio library with I2S pins
     audioPlayer.begin(I2S_BCLK, I2S_LRC, I2S_DOUT);
-    //audioPlayer.setVolume(2); // Set initial volume (0-21)
 
     // Initialized the controller and wait for serial communication to be established with it
     if (!controller.begin(getDefaultControllerConfig())) {
         showInitFailed("Controller Init Fail", "Failed to initialize controller");
     }
+
+    game.begin(getDefaultGameConfig());
 
     // Create audio loop task on core 0 with high priority
     xTaskCreatePinnedToCore(
@@ -134,6 +146,44 @@ void setup() {
         "ControllerTask",   // Task name
         4096,               // Stack size
         nullptr,            // Parameter
+        2,                  // Priority
+        nullptr,            // Task handle
+        1                   // Core 1
+    );
+
+    // Create a task to run the game update loop on core 1
+    xTaskCreatePinnedToCore(
+        [](void* param) {
+            while (true) {
+                float x, y;
+                bool buttonPressed;
+                if (controller.getStatus(x, y, buttonPressed)) {
+                    game.update(x, y);
+                }
+                delay(10);
+            }
+        },
+        "GameTask",         // Task name
+        4096,               // Stack size
+        nullptr,            // Parameter
+        1,                  // Priority
+        nullptr,            // Task handle
+        1                   // Core 1
+    );
+
+    // Create a task that listens for game stop button
+    xTaskCreatePinnedToCore(
+        [](void* param) {
+            while (true) {
+                if (game.isRunning() && isStopButtonPressed()) {
+                    game.stop();
+                }
+                delay(100);
+            }
+        },
+        "StopButtonTask",   // Task name
+        2048,               // Stack size
+        nullptr,            // Parameter
         1,                  // Priority
         nullptr,            // Task handle
         1                   // Core 1
@@ -142,37 +192,109 @@ void setup() {
     Serial.println("Initialization complete. Entering main loop.");
 }
 
+void beforeGame();
+void startGame();
+void gameEnd();
 
-uint16_t counter = 0;
 void loop() {
-    Serial.println("Main looop running...");
+    beforeGame();
+    startGame();
+    Serial.println("Game started. Waiting for it to end...");
 
-    Serial.print("Ball drop pin: ");
-    Serial.println(digitalRead(BALL_DROP_PIN));
-    if (digitalRead(BALL_DROP_PIN))
-        digitalWrite(LED_BUILTIN, HIGH);
-    else
-        digitalWrite(LED_BUILTIN, LOW);
-
-    delay(500);
-
-    float x, y;
-    bool buttonPressed;
-    if (controller.getStatus(x, y, buttonPressed)) {
-        Serial.printf("Controller status - X: %.2f, Y: %.2f, Button: %s\n", x, y, buttonPressed ? "Pressed" : "Released");
-    } else {
-        Serial.println("Controller not active or communication lost.");
+    // Wait for game to end
+    while (game.isRunning()) {
+        delay(100);
     }
-    uint16_t updateRate = controller.getUpdateRate();
-    controller.setUpdateRate(updateRate); // Just to test sending parameters to the controller
-    controller.setIsEnabled(true); // Just to test sending parameters to the controller
-    
-    /*
-    mainDisplay.setCountdownMode(millis() + 10000, 10000, 5000); // Example: 10 second countdown with critical threshold at 3 seconds
-    delay(10000);
-    audioPlayer.play(AUDIO_FILE_GAME_WIN);
-    delay(10000);
-    
-    delay(5000);
-    */
+
+    Serial.println("Game ended. Showing results...");
+    gameEnd();
+
+    // Wait for game ready to start again
+    while (!game.isReadyToStart()) {
+        delay(100);
+    }
 }
+
+void displayNextGameLevel() {
+    pbHub.setLEDBrightness(1, 127);
+
+    uint32_t ledColor[3] = {0};
+
+    if (nextGameLevel == GameLevel::EASY) {
+        ledColor[2] = 0x00FF00; // Green for easy
+    } else if (nextGameLevel == GameLevel::MEDIUM) {
+        ledColor[1] = 0xFFFF00; // Yellow for medium
+    } else if (nextGameLevel == GameLevel::HARD) {
+        ledColor[0] = 0xFF0000; // Red for hard
+    }
+
+    for (int i = 0; i < 3; i++) {
+        pbHub.setLEDColor(1, i, ledColor[i]);
+    }
+}
+
+void beforeGame() {
+    Button startButton;
+
+    mainDisplay.setNoGameMode();
+    displayNextGameLevel();
+
+    while (true) {
+        startButton.setRawState(millis(), isStartButtonPressed());
+
+        if (startButton.wasSingleClicked()) {
+            if (isStopButtonPressed()) {
+                // Toggle next game level
+                if (nextGameLevel == GameLevel::EASY) {
+                    nextGameLevel = GameLevel::MEDIUM;
+                } else if (nextGameLevel == GameLevel::MEDIUM) {
+                    nextGameLevel = GameLevel::HARD;
+                } else if (nextGameLevel == GameLevel::HARD) {
+                    nextGameLevel = GameLevel::EASY;
+                }
+                displayNextGameLevel();
+            } else {
+                // Start the game
+                break;
+            }
+        }
+
+        delay(10);
+    }
+}
+
+void startGame() {
+    game.start(nextGameLevel);
+
+    unsigned long gameEndTimeMs = game.currentGameEndTimeMs();
+    uint16_t gameTimeLimitMs = game.currentGameTimeLimitMs();
+    uint16_t criticalThresholdMs = nextGameLevel == GameLevel::EASY ? 10000 : 5000;
+    mainDisplay.setCountdownMode(gameEndTimeMs, gameTimeLimitMs, criticalThresholdMs);
+}
+
+void gameEnd() {
+    GameLevel lastGameLevel;
+    GameResult lastGameResult;
+    uint16_t lastGameCompletionTimeMs;
+
+    game.lastGameStats(nextGameLevel, lastGameResult, lastGameCompletionTimeMs);
+
+    if (lastGameResult == GameResult::NONE) {
+        // Game was stopped without a win or loss (e.g. by pressing stop button)
+        // Nothing to show on display, just return to before game state
+        return;
+    }
+
+    // Update the display to reflect the game result
+    if (lastGameResult == GameResult::WON) {
+        mainDisplay.setGameWinMode();
+    } else if (lastGameResult == GameResult::LOST) {
+        mainDisplay.setGameOverMode();
+    }
+
+    // Wait for the display to finish its animation before proceeding
+    while (!mainDisplay.isModeDone()) {
+        delay(100);
+    }
+}
+
