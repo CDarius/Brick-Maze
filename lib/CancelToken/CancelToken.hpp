@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Arduino.h>
 #include <mutex>
 
 // Usage:
@@ -11,8 +12,9 @@
         if ((token).isCancelled()) { \
             block \
         } \
-    } while(0)
+    } while(0);
 
+    
 class CancelToken {
 private:
     bool cancelled = false;
@@ -22,3 +24,5 @@ public:
     bool isCancelled();
     void cancel();
 };
+
+void delayCancellable(unsigned long delayMs, CancelToken& token);

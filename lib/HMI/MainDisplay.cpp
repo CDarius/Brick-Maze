@@ -95,14 +95,23 @@ void MainDisplay::noGameUpdateLoop() {
 
     while (!localCancelToken.isCancelled()) {
         textAnimation.showText("HOW TO PLAY:", redYelloMirrorGradient, TEXT_POSITION_CENTER);
-        delay(1000);
+        IF_CANCELLED(localCancelToken, break;)
+        delayCancellable(1000, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
         textAnimation.verticalScrollIn("USE THE CONTROLLER", redYelloMirrorGradient, TEXT_POSITION_LEFT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
         textAnimation.verticalScrollIn("TO MOVE THE MAZE.", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
         textAnimation.verticalScrollIn("REACH THE END", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
         textAnimation.verticalScrollIn("BEFORE THE TIMER", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
         textAnimation.verticalScrollIn("RUNS OUT", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
         textAnimation.verticalScrollIn("", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
-        delay(2000);
+        IF_CANCELLED(localCancelToken, break;)
+        delayCancellable(2000, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
     };
 
     cancelToken = nullptr; // Clear cancel token reference when exiting loop
