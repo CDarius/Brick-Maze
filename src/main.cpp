@@ -7,6 +7,7 @@
 
 #include <HardwareServo.hpp>
 #include <M5UnitPbHub.hpp>
+#include <MPU6886.hpp>
 #include <Button.hpp>
 
 #include <Controller.hpp>
@@ -24,6 +25,7 @@ HardwareServo xServo(X_SERVO_PIN, 0, -180, 180, 500, 2500, true);
 HardwareServo yServo(Y_SERVO_PIN, 1, -180, 180, 500, 2500);
 
 M5UnitPbHub pbHub(Wire);
+MPU6886 imu(Wire);
 
 SerialComm controllerSerialComm(Serial1);
 Controller controller(controllerSerialComm);
@@ -83,6 +85,9 @@ void setup() {
     Wire.begin(I2C_SDA, I2C_SCL);
     if (!pbHub.begin()) {
         showInitFailed("PB Hub Init Fail", "Failed to initialize M5 Unit PB Hub");
+    }
+    if (!imu.begin(MPU6886::AccelScale::RANGE_2G)) {
+        showInitFailed("IMU Init Fail", "Failed to initialize MPU6886 IMU");
     }
 
     // Initialize X & Y servos
@@ -195,6 +200,8 @@ void setup() {
         nullptr,            // Task handle
         1                   // Core 1
     );
+
+    game.servoCalibration(imu);
 
     audioPlayer.play(AUDIO_FILE_SYSTEM_READY);
     Serial.println("Initialization complete. Entering main loop.");

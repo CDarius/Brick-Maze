@@ -35,28 +35,39 @@ public:
      * Sets the servo to a specific angle.
      * @param angle The desired angle to set the servo to.
      */
-    void setAngle(int angle);
+    void setAngle(float angle);
+
+    /**
+     * Changes the servo angle by a delta from the last commanded angle.
+     * @param deltaAngle The angle delta to apply.
+     */
+    void changeAngle(float deltaAngle);
+
+    /**
+     * Gets the most recently commanded angle.
+     * @return Last angle setpoint.
+     */
+    inline float getLastAngle() const {
+        if (maxPulseWidthUs == minPulseWidthUs) {
+            return (float)minAngle;
+        }
+        float normalized = (float)(lastPulseWidthUs - minPulseWidthUs) / (float)(maxPulseWidthUs - minPulseWidthUs);
+        return (float)minAngle + normalized * (float)(maxAngle - minAngle);
+    }
+
+    /**
+     * Gets the most recently commanded pulse width in microseconds.
+     * @return Last pulse width setpoint in microseconds.
+     */
+    inline uint16_t getLastPulseWitdth() const {
+        return lastPulseWidthUs;
+    }
 
     /**
      * Sets the servo to a specific pulse width in microseconds.
      * @param pulseWidthUs The desired pulse width in microseconds to set the servo to
      */
-    inline void setPulseWidth(uint16_t pulseWidthUs) {
-        // Limit the pulse width to the specified range
-        pulseWidthUs = constrain(pulseWidthUs, minPulseWidthUs, maxPulseWidthUs);
-
-        // Optionally invert pulse width mapping (min -> max, max -> min)
-        if (invertOutputPulseWidth) {
-            uint32_t pulseWidthSum = (uint32_t)minPulseWidthUs + (uint32_t)maxPulseWidthUs;
-            pulseWidthUs = (uint16_t)(pulseWidthSum - pulseWidthUs);
-        }
-
-        // Map the pulse width to the corresponding duty cycle
-        uint32_t duty = (((uint32_t)pulseWidthUs) * MAX_DUTY_CYCLE) / PWM_PERIOD_US;
-
-        // Write the duty cycle value to the PWM channel
-        ledcWrite(channel, duty);
-    }
+    void setPulseWidth(uint16_t pulseWidthUs);
 
 private:
     // Common PWM parameters for servos
@@ -78,4 +89,5 @@ private:
     bool invertOutputPulseWidth;
     uint16_t minDuty;
     uint16_t maxDuty;
+    uint16_t lastPulseWidthUs = 0;
 };

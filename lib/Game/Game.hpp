@@ -4,6 +4,7 @@
 #include <HardwareServo.hpp>
 #include <GameConfig.h>
 #include <SlewRateLimiter.hpp>
+#include <MPU6886.hpp>
 
 enum class GameLevel {
     EASY,
@@ -69,6 +70,13 @@ class Game {
          * @param controllerY The Y axis input from the controller, expected to be in the range [-1, 1].
          */
         void update(float controllerX, float controllerY);
+
+        /** 
+         * Performs servo calibration by moving the servos to level the game table, using the IMU 
+         * to measure the current orientation. This can help ensure that the game starts with the table level.
+         * @param imu Reference to the MPU6886 IMU used for measuring orientation during calibration.
+        */
+        void servoCalibration(MPU6886& imu);
 
         /**
          * Checks if the game is currently running.
@@ -141,4 +149,9 @@ class Game {
         void resetBallDroppedFlag();
         bool consumeBallDroppedFlag();
         uint16_t getTimeLimitMs(GameLevel level) const;
+
+        // Calibration
+        bool calibrationInProgress = false;
+        uint16_t xCenterPulseUs = 1500;
+        uint16_t yCenterPulseUs = 1500;
 };

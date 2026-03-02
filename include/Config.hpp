@@ -21,7 +21,11 @@ GameConfig getDefaultGameConfig() {
         .servoPulseRange = 600,     // Range of servo pulse in \microseconds (e.g. 1000 for 1000-2000us)
 
         .ballDropXPulseUs = 1500,  // X servo pulse width when ball is dropped
-        .ballDropYPulseUs = 1500   // Y servo pulse width when ball is dropped
+        .ballDropYPulseUs = 1500,  // Y servo pulse width when ball is dropped
+
+        .servoCalibrationErrorThresholdDeg = 0.5f,  // Acceptable error threshold in degrees for servo calibration
+        .servoCalibrationTargetAngleXDeg = 0.0f,    // Compensation for physical X axis misalignment in degrees for servo calibration to achieve level orientation
+        .servoCalibrationTargetAngleYDeg = -1.7f    // Compensation for physical Y axis misalignment in degrees for servo calibration to achieve level orientation
     };
 
     return config;

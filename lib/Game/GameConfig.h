@@ -11,4 +11,8 @@ struct GameConfig {
 
     uint16_t ballDropXPulseUs;  // X servo pulse width when ball is dropped
     uint16_t ballDropYPulseUs;  // Y servo pulse width when ball is dropped
+
+    float servoCalibrationErrorThresholdDeg;    // Acceptable error threshold in degrees for servo calibration
+    float servoCalibrationTargetAngleXDeg;      // Compensation for physical X axis misalignment in degrees for servo calibration to achieve level orientation
+    float servoCalibrationTargetAngleYDeg;      // Compensation for physical Y axis misalignment in degrees for servo calibration to achieve level orientation
 };
