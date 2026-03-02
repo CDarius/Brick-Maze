@@ -20,14 +20,14 @@
 
 #include <CancelToken.hpp>
 
-HardwareServo xServo(X_SERVO_PIN, 0, -180, 180, 500, 2500);
+HardwareServo xServo(X_SERVO_PIN, 0, -180, 180, 500, 2500, true);
 HardwareServo yServo(Y_SERVO_PIN, 1, -180, 180, 500, 2500);
 
 M5UnitPbHub pbHub(Wire);
 
 SerialComm controllerSerialComm(Serial1);
 Controller controller(controllerSerialComm);
-Game game(xServo, yServo, BALL_DROP_PIN);
+Game game(xServo, yServo);
 
 AudioPlayer audioPlayer(1); // Use I2S port 1. Display uses I2S0 (ESP32) or LCD (ESP32-S3).
 
@@ -59,6 +59,10 @@ bool isStartButtonPressed() {
     return pbHub.digitalRead(0, 0) == LOW;
 }
 
+void IRAM_ATTR onBallDropInterrupt() {
+    game.setBallDropped();
+}
+
 void setup() {
     // Initialize serial communication for debugging
     Serial.begin(115200);
@@ -71,6 +75,9 @@ void setup() {
     
     // Initialize IO pins
     pinMode(LED_BUILTIN, OUTPUT);
+    // Initialize ball drop pin input
+    pinMode(BALL_DROP_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(BALL_DROP_PIN), onBallDropInterrupt, FALLING);
 
     // Initialize I2C bus & devices
     Wire.begin(I2C_SDA, I2C_SCL);
@@ -79,11 +86,11 @@ void setup() {
     }
 
     // Initialize X & Y servos
-    if (!xServo.begin()) {
+    if (!xServo.begin(0)) {
         showInitFailed("X Servo Init Fail", "Failed to initialize X servo pin with LedC peripheral");
     }
 
-    if (!yServo.begin()) {
+    if (!yServo.begin(0)) {
         showInitFailed("Y Servo Init Fail", "Failed to initialize Y servo pin with LedC peripheral");
     }
 
@@ -107,7 +114,7 @@ void setup() {
 
     // Initialized the controller and wait for serial communication to be established with it
     if (!controller.begin(getDefaultControllerConfig())) {
-        showInitFailed("Controller Init Fail", "Failed to initialize controller");
+        showInitFailed("Ctrl Init Fail", "Failed to initialize controller");
     }
 
     game.begin(getDefaultGameConfig());
@@ -189,6 +196,7 @@ void setup() {
         1                   // Core 1
     );
 
+    audioPlayer.play(AUDIO_FILE_SYSTEM_READY);
     Serial.println("Initialization complete. Entering main loop.");
 }
 

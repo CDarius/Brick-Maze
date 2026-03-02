@@ -4,19 +4,37 @@ namespace {
     constexpr uint16_t kCenterPulseUs = 1500;
 }
 
-Game::Game(HardwareServo& xServo, HardwareServo& yServo, uint8_t ballDropPin) 
-    : xServo(xServo), yServo(yServo), ballDropPin(ballDropPin) {
-        xServoRamp = SlewRateLimiter<uint16_t>(kCenterPulseUs, 200.0f); // Default max rate: 200us/sec
-        yServoRamp = SlewRateLimiter<uint16_t>(kCenterPulseUs, 200.0f); // Default max rate: 200us/sec
+Game::Game(HardwareServo& xServo, HardwareServo& yServo) 
+    : xServo(xServo), yServo(yServo) {
+        xServoRamp = SlewRateLimiter<int16_t>(kCenterPulseUs, 200.0f); // Default max rate: 200us/sec
+        yServoRamp = SlewRateLimiter<int16_t>(kCenterPulseUs, 200.0f); // Default max rate: 200us/sec
     }
+
+void IRAM_ATTR Game::setBallDropped() {
+    portENTER_CRITICAL_ISR(&ballDroppedMux);
+    ballDropped = true;
+    portEXIT_CRITICAL_ISR(&ballDroppedMux);
+}
+
+void Game::resetBallDroppedFlag() {
+    portENTER_CRITICAL(&ballDroppedMux);
+    ballDropped = false;
+    portEXIT_CRITICAL(&ballDroppedMux);
+}
+
+bool Game::consumeBallDroppedFlag() {
+    bool dropped;
+    portENTER_CRITICAL(&ballDroppedMux);
+    dropped = ballDropped;
+    ballDropped = false;
+    portEXIT_CRITICAL(&ballDroppedMux);
+    return dropped;
+}
 
 void Game::begin(const GameConfig config) {
     this->config = config;
-    xServoRamp = SlewRateLimiter<uint16_t>(kCenterPulseUs, config.maxServoPulseRate); // Set max rate from config
-    yServoRamp = SlewRateLimiter<uint16_t>(kCenterPulseUs, config.maxServoPulseRate); // Set max rate from config
-
-    // Initialize ball drop pin input
-    pinMode(ballDropPin, INPUT_PULLUP);
+    xServoRamp.setMaxRate(config.maxServoPulseRate);
+    yServoRamp.setMaxRate(config.maxServoPulseRate);
 
     // Initialize game state
     status = GameStatus::NOT_RUNNING;
@@ -39,9 +57,10 @@ void Game::start(GameLevel level) {
     currentTimeLimitMs = getTimeLimitMs(level);
     startTimeMs = millis();
     status = GameStatus::RUNNING;
+    resetBallDroppedFlag();
 
-    xServoRamp.setTarget(kCenterPulseUs);
-    yServoRamp.setTarget(kCenterPulseUs);
+    xServoRamp.setTarget(static_cast<int16_t>(kCenterPulseUs));
+    yServoRamp.setTarget(static_cast<int16_t>(kCenterPulseUs));
 }
 
 void Game::stop() {
@@ -52,8 +71,8 @@ void Game::stop() {
     status = GameStatus::NOT_RUNNING;
 
     // Reset servos to center position
-    xServoRamp.setTarget(kCenterPulseUs);
-    yServoRamp.setTarget(kCenterPulseUs);
+    xServoRamp.setTarget(static_cast<int16_t>(kCenterPulseUs));
+    yServoRamp.setTarget(static_cast<int16_t>(kCenterPulseUs));
 
     // Clear last game results
     lastGameResult = GameResult::NONE;
@@ -67,8 +86,8 @@ void Game::update(float controllerX, float controllerY) {
         unsigned long elapsedMs = nowMs - startTimeMs;
         if (currentTimeLimitMs > 0 && elapsedMs >= currentTimeLimitMs) {
             status = GameStatus::NOT_RUNNING;
-            xServoRamp.setTarget(kCenterPulseUs);
-            yServoRamp.setTarget(kCenterPulseUs);
+            xServoRamp.setTarget(static_cast<int16_t>(kCenterPulseUs));
+            yServoRamp.setTarget(static_cast<int16_t>(kCenterPulseUs));
             lastGameResult = GameResult::LOST;
             lastGameCompletionTimeMs = currentTimeLimitMs;
             lastGameLevel = currentLevel;
@@ -76,10 +95,10 @@ void Game::update(float controllerX, float controllerY) {
         }
 
         // Check if the ball has been dropped
-        if (digitalRead(ballDropPin) == LOW) {
-            status == GameStatus::DROPPING_BALL;
-            xServoRamp.setTarget(config.ballDropXPulseUs);
-            yServoRamp.setTarget(config.ballDropYPulseUs);
+        if (consumeBallDroppedFlag()) {
+            status = GameStatus::DROPPING_BALL;
+            xServoRamp.setTarget(static_cast<int16_t>(config.ballDropXPulseUs));
+            yServoRamp.setTarget(static_cast<int16_t>(config.ballDropYPulseUs));
             lastGameResult = GameResult::WON;
             lastGameCompletionTimeMs = elapsedMs;
             lastGameLevel = currentLevel;
@@ -93,6 +112,8 @@ void Game::update(float controllerX, float controllerY) {
         float halfRangeUs = static_cast<float>(config.servoPulseRange) * 0.5f;
         float targetPulseXUs = kCenterPulseUs + (clampedX * halfRangeUs);
         float targetPulseYUs = kCenterPulseUs + (clampedY * halfRangeUs);
+        xServoRamp.setTarget(static_cast<int16_t>(targetPulseXUs));
+        yServoRamp.setTarget(static_cast<int16_t>(targetPulseYUs));
     }
 
     // Update servo positions with slew rate limiting
@@ -101,8 +122,8 @@ void Game::update(float controllerX, float controllerY) {
     xServoRamp.update(deltaMs);
     yServoRamp.update(deltaMs);
 
-    xServo.setPulseWidth(xServoRamp.getCurrentValue());
-    yServo.setPulseWidth(yServoRamp.getCurrentValue());
+    xServo.setPulseWidth(static_cast<uint16_t>(xServoRamp.getCurrentValue()));
+    yServo.setPulseWidth(static_cast<uint16_t>(yServoRamp.getCurrentValue()));
 }
 
 bool Game::isRunning() const {

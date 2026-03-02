@@ -36,7 +36,7 @@ class Game {
          * @param yServo Reference to the HardwareServo controlling the Y axis.
          * @param ballDropPin GPIO pin number where the ball drop sensor is connected.
          */
-        Game(HardwareServo& xServo, HardwareServo& yServo, uint8_t ballDropPin);
+        Game(HardwareServo& xServo, HardwareServo& yServo);
 
         /**
          * Initializes the game with the provided configuration.
@@ -55,6 +55,12 @@ class Game {
          * Stops a running game and resets the state. The servos will return to the center position.
          */
         void stop();
+
+        /**
+         * Sets the ball drop status to true, indicating that the ball has been dropped. This should be called
+         * when the ball drop sensor detects that the ball has been dropped.
+         */
+        void IRAM_ATTR setBallDropped();
 
         /**
          * Updates the game state based on controller input and ball drop status. This should be called regularly
@@ -113,11 +119,10 @@ class Game {
     private:
         HardwareServo& xServo;
         HardwareServo& yServo;
-        uint8_t ballDropPin;
 
         GameConfig config;
-        SlewRateLimiter<uint16_t> xServoRamp;
-        SlewRateLimiter<uint16_t> yServoRamp;
+        SlewRateLimiter<int16_t> xServoRamp;
+        SlewRateLimiter<int16_t> yServoRamp;
 
         // Current game state
         GameStatus status = GameStatus::NOT_RUNNING;
@@ -125,11 +130,15 @@ class Game {
         uint16_t currentTimeLimitMs = 0;
         unsigned long startTimeMs = 0;
         unsigned long lastUpdateMs = 0;
+        volatile bool ballDropped = false;
+        portMUX_TYPE ballDroppedMux = portMUX_INITIALIZER_UNLOCKED;
 
         // Last game results
         GameResult lastGameResult = GameResult::NONE;
         uint16_t lastGameCompletionTimeMs = 0;
         GameLevel lastGameLevel = GameLevel::EASY;
 
+        void resetBallDroppedFlag();
+        bool consumeBallDroppedFlag();
         uint16_t getTimeLimitMs(GameLevel level) const;
 };

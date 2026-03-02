@@ -19,7 +19,9 @@ void HardwareServo::setAngle(int angle) {
     angle = constrain(angle, minAngle, maxAngle);
 
     // Map the angle to the corresponding duty cycle
-    long duty = map(angle, minAngle, maxAngle, minDuty, maxDuty);
+    long duty = invertOutputPulseWidth
+                    ? map(angle, minAngle, maxAngle, maxDuty, minDuty)
+                    : map(angle, minAngle, maxAngle, minDuty, maxDuty);
 
     // Write the duty cycle value to the PWM channel
     ledcWrite(channel, (int32_t)duty);

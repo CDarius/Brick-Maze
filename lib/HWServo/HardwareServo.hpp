@@ -15,9 +15,10 @@ public:
      * @param maxAngle The maximum angle of the servo (default is 180 degrees).
      * @param minPulseWidthUs The pulse width in microseconds corresponding to the minimum angle (default is 1000us).
      * @param maxPulseWidthUs The pulse width in microseconds corresponding to the maximum angle (default is 2000us).
+     * @param invertOutputPulseWidth If true, inverts angle-to-pulse mapping (minAngle -> maxPulseWidthUs, maxAngle -> minPulseWidthUs).
      */
-    HardwareServo(uint8_t pin, uint8_t channel, int16_t minAngle = 0, int16_t maxAngle = 180, uint16_t minPulseWidthUs = 1000, uint16_t maxPulseWidthUs = 2000)
-        : pin(pin), channel(channel), minAngle(minAngle), maxAngle(maxAngle), minPulseWidthUs(minPulseWidthUs), maxPulseWidthUs(maxPulseWidthUs) {
+    HardwareServo(uint8_t pin, uint8_t channel, int16_t minAngle = 0, int16_t maxAngle = 180, uint16_t minPulseWidthUs = 1000, uint16_t maxPulseWidthUs = 2000, bool invertOutputPulseWidth = false)
+        : pin(pin), channel(channel), minAngle(minAngle), maxAngle(maxAngle), minPulseWidthUs(minPulseWidthUs), maxPulseWidthUs(maxPulseWidthUs), invertOutputPulseWidth(invertOutputPulseWidth) {
         // Calculate min and max duty cycle based on pulse widths and PWM frequency
         minDuty = (minPulseWidthUs * MAX_DUTY_CYCLE) / PWM_PERIOD_US;
         maxDuty = (maxPulseWidthUs * MAX_DUTY_CYCLE) / PWM_PERIOD_US;
@@ -44,6 +45,12 @@ public:
         // Limit the pulse width to the specified range
         pulseWidthUs = constrain(pulseWidthUs, minPulseWidthUs, maxPulseWidthUs);
 
+        // Optionally invert pulse width mapping (min -> max, max -> min)
+        if (invertOutputPulseWidth) {
+            uint32_t pulseWidthSum = (uint32_t)minPulseWidthUs + (uint32_t)maxPulseWidthUs;
+            pulseWidthUs = (uint16_t)(pulseWidthSum - pulseWidthUs);
+        }
+
         // Map the pulse width to the corresponding duty cycle
         uint32_t duty = (((uint32_t)pulseWidthUs) * MAX_DUTY_CYCLE) / PWM_PERIOD_US;
 
@@ -68,6 +75,7 @@ private:
     int16_t maxAngle;
     uint16_t minPulseWidthUs;
     uint16_t maxPulseWidthUs;
+    bool invertOutputPulseWidth;
     uint16_t minDuty;
     uint16_t maxDuty;
 };
