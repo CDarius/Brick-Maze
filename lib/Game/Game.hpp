@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <SoftTimer.hpp>
 #include <HardwareServo.hpp>
 #include <GameConfig.h>
 #include <SlewRateLimiter.hpp>
@@ -131,6 +132,7 @@ class Game {
         GameConfig config;
         SlewRateLimiter<int16_t> xServoRamp;
         SlewRateLimiter<int16_t> yServoRamp;
+        SoftTimer timer;
 
         // Current game state
         GameStatus status = GameStatus::NOT_RUNNING;

@@ -97,8 +97,9 @@ void Game::update(float controllerX, float controllerY) {
         // Check if the ball has been dropped
         if (consumeBallDroppedFlag()) {
             status = GameStatus::DROPPING_BALL;
-            xServoRamp.setTarget(static_cast<int16_t>(config.ballDropXPulseUs));
-            yServoRamp.setTarget(static_cast<int16_t>(config.ballDropYPulseUs));
+            xServoRamp.setTarget(config.ballDropXDeltaPulseUs + static_cast<int16_t>(xCenterPulseUs));
+            yServoRamp.setTarget(config.ballDropYDeltaPulseUs + static_cast<int16_t>(yCenterPulseUs));
+            timer.load(config.ballDropTimeMs);
             lastGameResult = GameResult::WON;
             lastGameCompletionTimeMs = elapsedMs;
             lastGameLevel = currentLevel;
@@ -114,6 +115,16 @@ void Game::update(float controllerX, float controllerY) {
         float targetPulseYUs = yCenterPulseUs + (clampedY * halfRangeUs);
         xServoRamp.setTarget(static_cast<int16_t>(targetPulseXUs));
         yServoRamp.setTarget(static_cast<int16_t>(targetPulseYUs));
+    }
+    if (status == GameStatus::DROPPING_BALL) {
+        // During ball dropping controller is not used and wait for the ball to reach
+        // the back collection box
+        if (timer.isElapsed()) {
+            // Ball has reached the back collection box, ready for next game
+            status = GameStatus::NOT_RUNNING;
+            xServoRamp.setTarget(static_cast<int16_t>(xCenterPulseUs));
+            yServoRamp.setTarget(static_cast<int16_t>(yCenterPulseUs));
+        }
     }
 
     // Update servo positions with slew rate limiting
@@ -201,7 +212,6 @@ void Game::servoCalibration(MPU6886& imu) {
             yServo.changeAngle(controlY);
         }
 
-        Serial.printf("Accel X: %.4f, Y: %.4f, Angle X: %.2f, Angle Y: %.2f\n", accelX, accelY, angleX_deg, angleY_deg);
         delay(200);
 
         if (xCalibrationOk >= 5 && yCalibrationOk >= 5) {

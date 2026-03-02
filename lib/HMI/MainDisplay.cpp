@@ -271,12 +271,17 @@ void MainDisplay::gameOverUpdateLoop() {
     //audioPlayer.play(AUDIO_FILE_GAME_OVER);
     audioPlayer.play(AUDIO_FILE_GAME_OVER);
     imageTransitionAnimation.horizontalCenterTransition(_buffer1, _buffer2, COLOR_RED, 300, localCancelToken);
-    modeDone = true; // Signal that game over animation has finished
 
     // Wait in this loop until the mode changes to avoid to repeat the animation
     while (!localCancelToken.isCancelled()) {        
-        delay(20);
+        if (!modeDone) {
+            if (!audioPlayer.isPlaying()) {
+                modeDone = true; // Signal that game win animation has finished when audio finishes playing
+            }
+        }
+        delay(50);
     }
+
     cancelToken = nullptr; // Clear cancel token reference when exiting function
 }
 

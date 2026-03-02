@@ -311,8 +311,13 @@ void gameEnd() {
     }
 
     // Wait for the display to finish its animation before proceeding
-    while (!mainDisplay.isModeDone()) {
+    while (!mainDisplay.isModeDone()) {        
         delay(100);
+    }
+
+    if (lastGameResult == GameResult::LOST) {
+        // Delay a couple of seconds to keep the game over screen visible before returning to idle state
+        delay(2000);
     }
 }
 
