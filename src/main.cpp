@@ -201,9 +201,12 @@ void setup() {
         1                   // Core 1
     );
 
+    // Calibrate servos by leveling the table before starting the game
+    mainDisplay.setTableLevelingMode();
     game.servoCalibration(imu);
 
     audioPlayer.play(AUDIO_FILE_SYSTEM_READY);
+    mainDisplay.setNoGameMode();
     Serial.println("Initialization complete. Entering main loop.");
 }
 

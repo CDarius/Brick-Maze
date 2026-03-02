@@ -61,6 +61,20 @@ void MainDisplay::setGameWinMode() {
     }   
 }
 
+void MainDisplay::setTableLevelingMode() {
+    uint8_t newMode = MAIN_DISPLAY_MODE_TABLE_LEVELING;
+    if (newMode == currentMode)
+        return; // No change
+
+    currentMode = newMode;
+    modeDone = false;
+
+    // Cancel current ongoing mode loop
+    if (cancelToken != nullptr) {
+        cancelToken->cancel();
+    }
+}
+
 void MainDisplay::updateLoop() {
     // This will be called in the main loop to update the display based on the current mode
     while (true)
@@ -80,6 +94,10 @@ void MainDisplay::updateLoop() {
 
             case MAIN_DISPLAY_MODE_GAME_WIN:
                 gameWinUpdateLoop();
+                break;
+
+            case MAIN_DISPLAY_MODE_TABLE_LEVELING:
+                tableLevelingUpdateLoop();
                 break;
         }
     }   
@@ -304,5 +322,31 @@ void MainDisplay::gameWinUpdateLoop() {
         }
         delay(50);
     }
+    cancelToken = nullptr; // Clear cancel token reference when exiting function
+}
+
+void MainDisplay::tableLevelingUpdateLoop() {
+    CancelToken localCancelToken;
+    cancelToken = &localCancelToken;
+
+    const char* frames[] = {"|", "/", "-", "\\"};
+    const uint8_t frameCount = sizeof(frames) / sizeof(frames[0]);
+    uint8_t frameIndex = 0;
+
+    RgbColor cyanBlueMirrorGradient[ANIM_TEXT_FONT_HEIGHT];
+    display.mirroredColorGradient(COLOR_CYAN, COLOR_BLUE, cyanBlueMirrorGradient, ANIM_TEXT_FONT_HEIGHT);
+
+    while (!localCancelToken.isCancelled()) {
+        String animChar = String(frames[frameIndex]);
+        String animText = "LEVELING " + animChar;
+
+        display.clear();
+        display.drawString(1, 0, animText, cyanBlueMirrorGradient, FONT_6x8);
+        display.show();
+
+        frameIndex = (frameIndex + 1) % frameCount;
+        delay(160);
+    }
+
     cancelToken = nullptr; // Clear cancel token reference when exiting function
 }

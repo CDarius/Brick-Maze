@@ -13,6 +13,7 @@
 #define MAIN_DISPLAY_MODE_NO_GAME   2
 #define MAIN_DISPLAY_MODE_GAME_OVER 3
 #define MAIN_DISPLAY_MODE_GAME_WIN  4
+#define MAIN_DISPLAY_MODE_TABLE_LEVELING 5
 
 class MainDisplay {
 private:
@@ -35,6 +36,7 @@ private:
     void countdownUpdateLoop();
     void gameOverUpdateLoop();
     void gameWinUpdateLoop();
+    void tableLevelingUpdateLoop();
 public:
     MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display, TextAnimation& textAnimation, ImageTransitionAnimation& imageTransitionAnimation) 
         : audioPlayer(audioPlayer), display(display), textAnimation(textAnimation), imageTransitionAnimation(imageTransitionAnimation) {
@@ -45,6 +47,7 @@ public:
     void setCountdownMode(unsigned long endTimeMs, uint32_t durationMs, uint32_t criticalThresholdMs);
     void setGameOverMode();
     void setGameWinMode();
+    void setTableLevelingMode();
     void updateLoop();
 
     bool isModeDone() const {
