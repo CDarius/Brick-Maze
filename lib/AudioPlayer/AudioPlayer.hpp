@@ -18,6 +18,9 @@ class AudioPlayer {
         Audio audio;
         String newFilenameToPlay;
         SemaphoreHandle_t _mutex;
+        bool hasPendingPlayback;
+        bool isPlayingLatched;
+        uint32_t lastPlaybackActivityMs;
 
     public:
         /**
@@ -28,6 +31,9 @@ class AudioPlayer {
         AudioPlayer(uint8_t i2s_port_number = 0) : audio(false, 0, i2s_port_number) {
             _mutex = xSemaphoreCreateMutex();
             newFilenameToPlay = "";
+            hasPendingPlayback = false;
+            isPlayingLatched = false;
+            lastPlaybackActivityMs = 0;
         }
         /**
          * Initializes the audio player with the specified I2S pin configuration. 
@@ -47,7 +53,21 @@ class AudioPlayer {
          * has actually stopped.
          */ 
         inline bool isPlaying() {
-            return audio.isRunning();
+            bool currentlyRunning = false;
+            bool isPlayingNow = false;
+
+            if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
+                currentlyRunning = audio.isRunning();
+                if (currentlyRunning) {
+                    isPlayingLatched = true;
+                    lastPlaybackActivityMs = millis();
+                }
+
+                isPlayingNow = hasPendingPlayback || isPlayingLatched || currentlyRunning;
+                xSemaphoreGive(_mutex);
+            }
+
+            return isPlayingNow;
         }    
 
         /**
@@ -69,6 +89,8 @@ class AudioPlayer {
         void play(String filename) {
             if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
                 newFilenameToPlay = filename; // Set the pending filename to play. The audio loop will handle starting playback.
+                hasPendingPlayback = true;
+                isPlayingLatched = true;
                 xSemaphoreGive(_mutex);
             }
         }
@@ -83,11 +105,24 @@ class AudioPlayer {
                         // Start to play the next file
                         if (!audio.connecttoFS(SPIFFS, newFilenameToPlay.c_str())) {
                             Serial.println("Failed to play audio file: " + newFilenameToPlay);
+                            hasPendingPlayback = false;
+                            isPlayingLatched = false;
+                        } else {
+                            hasPendingPlayback = false;
+                            isPlayingLatched = true;
+                            lastPlaybackActivityMs = millis();
                         }
                         newFilenameToPlay = ""; // Clear the pending filename after starting playback
                     }
 
                     audio.loop();
+                    bool running = audio.isRunning();
+                    if (running) {
+                        isPlayingLatched = true;
+                        lastPlaybackActivityMs = millis();
+                    } else if (isPlayingLatched && !hasPendingPlayback && (millis() - lastPlaybackActivityMs > 200)) {
+                        isPlayingLatched = false;
+                    }
                     xSemaphoreGive(_mutex);
                 }
                 delay(5); // Yield to other tasks. The audio library needs to be called frequently.
