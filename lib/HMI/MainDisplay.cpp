@@ -579,15 +579,16 @@ void MainDisplay::endGameTimeUpdateLoop() {
         drawShiningThropy(display, 8, 0, glintFrame);
         drawShiningThropy(display, TOTAL_WIDTH - 16, 0, glintFrame);
         glintFrame = (++glintFrame) % 16; // Loop glint frame for shining effect
-        
         display.show();
+        
         long pitchAttuale = map(f, 0, TOTAL_COUNTUP_FRAMES, startBeepFrequency, endBeepFrequency);
         audioPlayer.playTone(pitchAttuale, 25);
+        
         delay(MAIN_DISPLAY_MAX_FPS_MS);
     }
 
     // --- PHASE 2: SUSPENSE (80% -> 100%) ---
-    for (uint16_t f = 1; f <= frameSuspense; f++) {
+    for (uint16_t f = 1; f < frameSuspense; f++) {
         // Slower easing for suspense effect as we approach the final time
         IF_CANCELLED(localCancelToken, break;)
         displayedTimeMs = timeForSprintMs + (residualTimeMs * f) / frameSuspense;
@@ -601,11 +602,12 @@ void MainDisplay::endGameTimeUpdateLoop() {
         drawShiningThropy(display, 8, 0, glintFrame);
         drawShiningThropy(display, TOTAL_WIDTH - 16, 0, glintFrame);
         glintFrame = (++glintFrame) % 16; // Loop glint frame for shining effect
-        
-        // Gradually increase delay to create a slowing down effect as we approach the final time
         display.show();
+        
         long pitchAttuale = map(f + frameSprint, 0, TOTAL_COUNTUP_FRAMES, startBeepFrequency, endBeepFrequency);
         audioPlayer.playTone(pitchAttuale, 25);
+
+        // Gradually increase delay to create a slowing down effect as we approach the final time
         delay(MAIN_DISPLAY_MAX_FPS_MS + (f * 3));
     }
 
