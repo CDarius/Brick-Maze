@@ -1,5 +1,65 @@
 #include "MainDisplay.hpp"
 
+namespace {
+    /**
+     * Helper function to format a time span in milliseconds into a string with seconds 
+     * and centiseconds (e.g., "12.34")
+     */
+    String formatTimeSpan(uint32_t timeSpanMs) {
+        // Format time as seconds with 2 decimal places
+        uint32_t centiseconds = (timeSpanMs + 5) / 10; // Round milliseconds to 2 decimals
+        uint32_t wholeSeconds = centiseconds / 100;
+        uint32_t fractionalPart = centiseconds % 100;
+
+        String wholeSecondsText = String(wholeSeconds);
+        if (wholeSeconds < 10) {
+            wholeSecondsText = "0" + wholeSecondsText;
+        }
+
+        String fractionalText = String(fractionalPart);
+        if (fractionalPart < 10) {
+            fractionalText = "0" + fractionalText;
+        }
+
+        String gameTimeText = wholeSecondsText + "." + fractionalText;
+        return gameTimeText;
+    }
+
+    /**
+     * Draws the trophy icon with a shining effect by alternating between the base gold color 
+     * and the shine color in a diagonal pattern
+     */
+    void drawShiningThropy(PuzzleDisplay& display, uint16_t xOffset, uint16_t yOffset, uint16_t frame) {
+        uint16_t displayWidth = display.getWidth();
+        uint16_t displayHeight = display.getHeight();
+        
+        for (int y = 0; y < 8; y++) {
+            for (int x = 0; x < 8; x++) {
+                RgbColor pixelColor = ICON_TROPHY_8x8[y * 8 + x];
+
+                // Se il pixel è parte del corpo dorato della coppa, applichiamo il riflesso
+                if (pixelColor == C_GOLD || pixelColor == C_SHINE) {
+                    
+                    // Creiamo una diagonale: se x + y è uguale al frame attuale, illumina il pixel
+                    // Usiamo un range (es. frame, frame-1) per rendere la scia più spessa
+                    if ((x + y) == frame || (x + y) == (frame - 1)) {
+                        pixelColor = C_SHINE; 
+                    } else {
+                        pixelColor = C_GOLD; // Torna al colore base
+                    }
+                }
+
+                int targetX = x + xOffset;
+                int targetY = y + yOffset;
+                
+                if (targetX >= 0 && targetX < displayWidth && targetY >= 0 && targetY < displayHeight) {
+                    display.drawPixel(targetX, targetY, pixelColor);
+                }
+            }
+        }
+    }
+}
+
 void MainDisplay::setNoGameMode() {
     uint8_t newMode = MAIN_DISPLAY_MODE_NO_GAME;
     if (newMode == currentMode) 
@@ -75,6 +135,46 @@ void MainDisplay::setTableLevelingMode() {
     }
 }
 
+void MainDisplay::setShowEndGameTimeMode(uint32_t timeSpanMs) {
+    uint8_t newMode = MAIN_DISPLAY_MODE_SHOW_GAME_TIME;
+    bool modeChanged = newMode != currentMode;
+
+    if (!modeChanged) {
+        return; // No change
+    }
+
+    currentMode = newMode;
+    modeDone = false;
+    endGameTimeSpanMs = timeSpanMs;
+    endGameTimeIsNewRecord = false;
+
+    // Cancel current ongoing mode loop
+    if (cancelToken != nullptr) {
+        cancelToken->cancel();
+    }
+}
+
+void MainDisplay::setShowEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank) {
+    uint8_t newMode = MAIN_DISPLAY_MODE_SHOW_GAME_TIME;
+    bool modeChanged = newMode != currentMode;
+
+    if (!modeChanged) {
+        return; // No change
+    }
+
+    currentMode = newMode;
+    modeDone = false;
+    endGameTimeSpanMs = timeSpanMs;
+    endGameTimeIsNewRecord = true;
+    endGameTimeGameLevel = level;
+    endGameTimeRank = rank;
+
+    // Cancel current ongoing mode loop
+    if (cancelToken != nullptr) {
+        cancelToken->cancel();
+    }
+}
+
 void MainDisplay::updateLoop() {
     // This will be called in the main loop to update the display based on the current mode
     while (true)
@@ -98,6 +198,10 @@ void MainDisplay::updateLoop() {
 
             case MAIN_DISPLAY_MODE_TABLE_LEVELING:
                 tableLevelingUpdateLoop();
+                break;
+
+            case MAIN_DISPLAY_MODE_SHOW_GAME_TIME:
+                showEndGameTimeUpdateLoop();
                 break;
         }
     }   
@@ -132,6 +236,7 @@ void MainDisplay::noGameUpdateLoop() {
         IF_CANCELLED(localCancelToken, break;)
     };
 
+    modeDone = true;
     cancelToken = nullptr; // Clear cancel token reference when exiting loop
 }
 
@@ -247,6 +352,7 @@ void MainDisplay::countdownUpdateLoop() {
         delay(MAIN_DISPLAY_MAX_FPS_MS); // Limit update rate to max FPS
     }
 
+    modeDone = true;
     cancelToken = nullptr; // Clear the token when exiting the loop
 }
 
@@ -282,6 +388,7 @@ void MainDisplay::gameOverUpdateLoop() {
         delay(50);
     }
 
+    modeDone = true; // Ensure modeDone is set to true when exiting the loop in case of cancellation
     cancelToken = nullptr; // Clear cancel token reference when exiting function
 }
 
@@ -327,6 +434,8 @@ void MainDisplay::gameWinUpdateLoop() {
         }
         delay(50);
     }
+
+    modeDone = true; // Ensure modeDone is set to true when exiting the loop in case of cancellation
     cancelToken = nullptr; // Clear cancel token reference when exiting function
 }
 
@@ -353,5 +462,86 @@ void MainDisplay::tableLevelingUpdateLoop() {
         delay(160);
     }
 
+    modeDone = true;
     cancelToken = nullptr; // Clear cancel token reference when exiting function
+}
+
+void MainDisplay::showEndGameTimeUpdateLoop() {
+    CancelToken localCancelToken;
+    cancelToken = &localCancelToken;
+
+    const float TOTAL_COUNTUP_TIME_S = 2.0; // Total time for the count-up animation in seconds
+    const uint16_t TOTAL_COUNTUP_FRAMES = static_cast<uint16_t>(TOTAL_COUNTUP_TIME_S * MAIN_DISPLAY_MAX_FPS); // Total frames for the count-up animation based on max FPS
+    const float SLOW_DOWN_FACTOR  = 0.8; // 80% of the count-up animation before slowing down
+
+    uint32_t displayedTimeMs = 0;
+    uint16_t glintFrame = 0;
+
+    // Split frames: half for the sprint, half for the suspense
+    const uint16_t frameSprint = TOTAL_COUNTUP_FRAMES * 0.5; 
+    const uint16_t frameSuspense = TOTAL_COUNTUP_FRAMES - frameSprint;
+
+    uint32_t timeForSprintMs = static_cast<uint32_t>(endGameTimeSpanMs * SLOW_DOWN_FACTOR);
+    uint32_t residualTimeMs = endGameTimeSpanMs - timeForSprintMs;
+
+    // --- PHASE 1: SPRINT (0% -> 80%) ---
+    RgbColor goldYellowMirrorGradient[ANIM_TEXT_FONT_HEIGHT];
+    display.mirroredColorGradient(COLOR_GOLD, COLOR_YELLOW, goldYellowMirrorGradient, ANIM_TEXT_FONT_HEIGHT);
+    for (uint16_t f = 0; f <= frameSprint; f++) {
+        IF_CANCELLED(localCancelToken, break;)
+
+        // Calculate the time to display for this frame using a quadratic easing for a more dynamic effect
+        displayedTimeMs = (timeForSprintMs * f) / frameSprint;
+        String gameTimeText = formatTimeSpan(displayedTimeMs);
+
+        // Update display with the current time
+        display.clear();
+        display.drawCenteredString(0, gameTimeText, goldYellowMirrorGradient, FONT_6x8, true);
+        
+        // Show left and right trophy icons
+        drawShiningThropy(display, 8, 0, glintFrame);
+        drawShiningThropy(display, TOTAL_WIDTH - 16, 0, glintFrame);
+        glintFrame = (++glintFrame) % 16; // Loop glint frame for shining effect
+        
+        display.show();
+        delay(MAIN_DISPLAY_MAX_FPS_MS);
+    }
+
+    // --- PHASE 2: SUSPENSE (80% -> 100%) ---
+    for (uint16_t f = 1; f <= frameSuspense; f++) {
+        // Slower easing for suspense effect as we approach the final time
+        IF_CANCELLED(localCancelToken, break;)
+        displayedTimeMs = timeForSprintMs + (residualTimeMs * f) / frameSuspense;
+        String gameTimeText = formatTimeSpan(displayedTimeMs);
+
+        // Update display with the current time
+        display.clear();
+        display.drawCenteredString(0, gameTimeText, goldYellowMirrorGradient, FONT_6x8, true);
+        
+        // Show left and right trophy icons
+        drawShiningThropy(display, 8, 0, glintFrame);
+        drawShiningThropy(display, TOTAL_WIDTH - 16, 0, glintFrame);
+        glintFrame = (++glintFrame) % 16; // Loop glint frame for shining effect
+        
+        // Gradually increase delay to create a slowing down effect as we approach the final time
+        display.show();
+        delay(MAIN_DISPLAY_MAX_FPS_MS + (f * 3));
+    }
+
+    // Final display with the actual game time to ensure we end exactly on the correct time 
+    // in case of any rounding issues during the animation. It also remove the shining effect 
+    // on the trophy for a more static and celebratory final screen.
+    display.clear();
+    String finalTimeText = formatTimeSpan(endGameTimeSpanMs);
+    display.drawImage(8, 0, ICON_TROPHY_8x8, 8, 8);
+    display.drawImage(TOTAL_WIDTH - 16, 0, ICON_TROPHY_8x8, 8, 8);
+    display.drawCenteredString(0, finalTimeText, goldYellowMirrorGradient, FONT_6x8, true);
+    display.show();
+    
+    modeDone = true;
+    while (!localCancelToken.isCancelled()) {
+        delay(100); // Wait for mode change
+    }
+
+    cancelToken = nullptr;
 }

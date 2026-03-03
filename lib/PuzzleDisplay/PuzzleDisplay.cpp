@@ -406,3 +406,30 @@ void PuzzleDisplay::mirroredColorGradient(RgbColor startColor, RgbColor endColor
         colors[colorsLength - 1 - i] = color;
     }
 }
+
+void PuzzleDisplay::drawImage(int16_t x, int16_t y, const RgbColor* image, int16_t imageWidth, int16_t imageHeight, RgbColor transparent) {
+    for (int16_t imgX = 0; imgX < imageWidth; imgX++) {
+        int16_t finalX = x + imgX;
+        if (finalX < 0) {
+            continue; // Skip columns that are off-screen to the left
+        }
+        if (finalX >= TOTAL_WIDTH) {
+            break; // No need to continue if we've reached the right edge of the display
+        }
+        
+        for (int16_t imgY = 0; imgY < imageHeight; imgY++) {
+            int16_t finalY = y + imgY;
+            if (finalY < 0) {
+                continue; // Skip rows that are off-screen above
+            }
+            if (finalY >= PANEL_HEIGHT) {
+                break; // No need to continue if we've reached the bottom edge of the display
+            }
+
+            RgbColor pixelColor = image[imgY * imageWidth + imgX];
+            if (!(pixelColor == transparent)) { // Only draw if it's not the transparent color
+                drawPixel(finalX, finalY, pixelColor);
+            }
+        }
+    }
+}

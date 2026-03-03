@@ -2,8 +2,10 @@
 
 #include <AudioPlayer.hpp>
 #include <PuzzleDisplay.hpp>
+#include <Icons.hpp>
 #include <TextAnimation.hpp>
 #include <ImageTransitionAnimation.hpp>
+#include <GameLevel.hpp>
 #include <CancelToken.hpp>
 
 #define MAIN_DISPLAY_MAX_FPS    20
@@ -14,6 +16,7 @@
 #define MAIN_DISPLAY_MODE_GAME_OVER 3
 #define MAIN_DISPLAY_MODE_GAME_WIN  4
 #define MAIN_DISPLAY_MODE_TABLE_LEVELING 5
+#define MAIN_DISPLAY_MODE_SHOW_GAME_TIME 6
 
 class MainDisplay {
 private:
@@ -31,12 +34,19 @@ private:
     uint32_t countdownDurationMs;
     uint32_t countdownCriticalThresholdMs;
 
+    // Show end game time mode properties
+    uint32_t endGameTimeSpanMs;
+    bool endGameTimeIsNewRecord;
+    GameLevel endGameTimeGameLevel;
+    uint8_t endGameTimeRank;
+
     // Modes update loops
     void noGameUpdateLoop();
     void countdownUpdateLoop();
     void gameOverUpdateLoop();
     void gameWinUpdateLoop();
     void tableLevelingUpdateLoop();
+    void showEndGameTimeUpdateLoop();
 public:
     MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display, TextAnimation& textAnimation, ImageTransitionAnimation& imageTransitionAnimation) 
         : audioPlayer(audioPlayer), display(display), textAnimation(textAnimation), imageTransitionAnimation(imageTransitionAnimation) {
@@ -48,6 +58,8 @@ public:
     void setGameOverMode();
     void setGameWinMode();
     void setTableLevelingMode();
+    void setShowEndGameTimeMode(uint32_t timeSpanMs);
+    void setShowEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank);
     void updateLoop();
 
     bool isModeDone() const {

@@ -1,17 +1,12 @@
 #pragma once
 
 #include <Arduino.h>
+#include <GameLevel.hpp>
 #include <SoftTimer.hpp>
 #include <HardwareServo.hpp>
 #include <GameConfig.h>
 #include <SlewRateLimiter.hpp>
 #include <MPU6886.hpp>
-
-enum class GameLevel {
-    EASY,
-    MEDIUM,
-    HARD
-};
 
 enum class GameResult {
     NONE,

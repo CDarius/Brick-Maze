@@ -12,9 +12,11 @@ constexpr uint16_t TOTAL_LEDS = TOTAL_WIDTH * PANEL_HEIGHT; // 576
 
 // Colors definitions
 const RgbColor COLOR_BLACK(0, 0, 0);   // Black
+const RgbColor COLOR_WHITE(255, 255, 255); // White
 const RgbColor COLOR_RED(255, 0, 0);   // Red
 const RgbColor COLOR_ORANGE(255, 127, 0); // Orange
 const RgbColor COLOR_YELLOW(255, 255, 0); // Yellow
+const RgbColor COLOR_GOLD(255, 215, 0); // Gold
 const RgbColor COLOR_CHARTREUSE(127, 255, 0); // Chartreuse
 const RgbColor COLOR_GREEN(0, 255, 0);   // Green
 const RgbColor COLOR_SPRING_GREEN(0, 255, 127); // Spring Green
@@ -295,6 +297,19 @@ public:
      * @param destY The top-left Y coordinate of the portion to copy to
      */
     void copyCanvasFrom(const RgbColor* sourceCanvas, int16_t sourceX, int16_t sourceY, int16_t width, int16_t height, int16_t destX, int16_t destY);
+
+    // --- IMAGE METHODS ---
+
+    /** 
+     * Draw an image on the canvas. The image is represented as a 2D array of RgbColor. The method will copy the colors from the image to the canvas starting at (x, y). If the image exceeds the canvas boundaries, it will be clipped.
+     * @param x The top-left X coordinate to start drawing the image
+     * @param y The top-left Y coordinate to start drawing the image
+     * @param image A pointer to the first element of a 2D array of RgbColor representing the image (must have at least imageWidth * imageHeight elements)
+     * @param imageWidth The width of the image in pixels
+     * @param imageHeight The height of the image in pixels
+     * @param transparentColor If specified, any pixel in the image that matches this color will not be drawn (i.e. the corresponding pixel on the canvas will remain unchanged). If nullptr, all pixels in the image will be drawn.
+     */
+    void drawImage(int16_t x, int16_t y, const RgbColor* image, int16_t imageWidth, int16_t imageHeight, RgbColor transparent = COLOR_BLACK);
 
     // --- COLOR METHODS ---
 
