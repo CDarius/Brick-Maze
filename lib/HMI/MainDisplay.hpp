@@ -29,6 +29,7 @@ private:
     bool endGameTimeIsNewRecord;
     GameLevel endGameTimeGameLevel;
     uint8_t endGameTimeRank;
+    String endGamePlayerName;
 
     // Controller status
     float controllerX;
@@ -68,5 +69,9 @@ public:
 
     bool isModeDone() const {
         return modeDone;
+    }
+
+    String getEndGamePlayerName() const {
+        return endGamePlayerName;
     }
 };

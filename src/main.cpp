@@ -18,6 +18,7 @@
 #include <TextAnimation.hpp>
 #include <ImageTransitionAnimation.hpp>
 #include <MainDisplay.hpp>
+#include <HighScore.hpp>
 
 #include <CancelToken.hpp>
 
@@ -37,6 +38,7 @@ PuzzleDisplay display(PUZZLE_DISPLAY_PIXEL_PIN);
 TextAnimation textAnimation(display);
 ImageTransitionAnimation imageTransitionAnimation(display);
 MainDisplay mainDisplay(audioPlayer, display, textAnimation, imageTransitionAnimation);
+HighScore highScore;
 
 GameLevel nextGameLevel = GameLevel::EASY;
 
@@ -99,6 +101,16 @@ void setup() {
         showInitFailed("Y Servo Init Fail", "Failed to initialize Y servo pin with LedC peripheral");
     }
 
+    // Initialize the high score manager
+    if (!highScore.begin()) {
+        showInitFailed("HScore Fail", "Failed to initialize high score manager");
+    }
+    // Overwrite high scores with default values if both stop and start buttons are pressed during startup as a way 
+    // to reset high scores without needing to reflash the device
+    if (isStopButtonPressed() && isStartButtonPressed()) {
+        highScore.overwriteWithDefaultScores();
+    }
+
     // Initialize SPIFFS
     if (!SPIFFS.begin(true)) {
         showInitFailed("SPIFFS Mount Fail", "SPIFFS Mount Failed");
@@ -122,6 +134,7 @@ void setup() {
         showInitFailed("Ctrl Init Fail", "Failed to initialize controller");
     }
 
+    // Initialize the game with default configuration
     game.begin(getDefaultGameConfig());
 
     // Create audio loop task on core 0 with high priority
@@ -171,6 +184,10 @@ void setup() {
                 bool buttonPressed;
                 if (controller.getStatus(x, y, buttonPressed)) {
                     game.update(x, y);
+                    mainDisplay.updateControllerStatus(x, y, buttonPressed);
+                }
+                else {
+                    mainDisplay.updateControllerStatus(0, 0, false);
                 }
                 delay(10);
             }
@@ -295,7 +312,7 @@ void gameEnd() {
     GameResult lastGameResult;
     uint16_t lastGameCompletionTimeMs;
 
-    game.lastGameStats(nextGameLevel, lastGameResult, lastGameCompletionTimeMs);
+    game.lastGameStats(lastGameLevel, lastGameResult, lastGameCompletionTimeMs);
 
     if (lastGameResult == GameResult::NONE) {
         // Game was stopped without a win or loss (e.g. by pressing stop button)
@@ -315,7 +332,33 @@ void gameEnd() {
         delay(100);
     }
 
-    if (lastGameResult == GameResult::LOST) {
+    if (lastGameResult == GameResult::WON) {
+        // Check if the completion time is a new high score and update if so
+        int8_t rank = highScore.getHighScoreRank(lastGameLevel, lastGameCompletionTimeMs);
+        if (rank >= 0) {
+            // Enter player name and show high score celebration animation on the display
+            mainDisplay.setEndGameHighScoreMode(lastGameCompletionTimeMs, lastGameLevel, rank);
+            while (!mainDisplay.isModeDone()) {        
+                delay(100);
+            }
+            // Save the new high score
+            const String playerName = mainDisplay.getEndGamePlayerName();
+            HighScore::Score newScore = {{' ', ' ', ' ', '\0'}, lastGameCompletionTimeMs};
+            for (uint8_t i = 0; i < 3 && i < playerName.length(); ++i) {
+                newScore.name[i] = playerName[i];
+            }
+            highScore.write(lastGameLevel, newScore);
+        } else {
+            // If not an high score just show the completion time without entering a name
+            mainDisplay.setEndGameTimeMode(lastGameCompletionTimeMs);
+            while (!mainDisplay.isModeDone()) {        
+                delay(100);
+            }
+
+            // Small pause to let the player see their completion time before returning to idle state
+            delay(2000);
+        }
+    } else if (lastGameResult == GameResult::LOST) {
         // Delay a couple of seconds to keep the game over screen visible before returning to idle state
         delay(2000);
     }

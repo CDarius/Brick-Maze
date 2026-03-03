@@ -39,4 +39,15 @@ public:
      */
     void horizontalCenterTransition(const RgbColor* fromImage, const RgbColor* toImage, RgbColor lineColor, uint16_t durationMs, CancelToken& cancelToken);
 
+    /**
+     * Inverse of horizontalCenterTransition: two horizontal lines move from the top and bottom borders toward the center,
+     * revealing the toImage from the edges inward.
+     * @param fromImage is the image that will be covered by the transition (it should be already displayed before starting the animation).
+     * @param toImage is the image that will be revealed by the transition.
+     * @param lineColor is the color of the lines that will move. If it's the same as the background color, it will create a "curtain" effect.
+     * @param durationMs is the total duration of the transition in milliseconds.
+     * @param cancelToken is used to cancel the transition prematurely.
+     */
+    void horizontalCenterInverseTransition(const RgbColor* fromImage, const RgbColor* toImage, RgbColor lineColor, uint16_t durationMs, CancelToken& cancelToken);
+
 };

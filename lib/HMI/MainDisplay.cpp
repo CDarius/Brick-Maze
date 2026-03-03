@@ -102,6 +102,23 @@ namespace {
             }
         }
     }
+
+    void drawGameEndTime(PuzzleDisplay& display, RgbColor* textGradient, uint32_t timeMs, uint16_t glintFrame) {
+        String gameTimeText = formatTimeSpan(timeMs);
+
+        // Update display with the current time
+        display.clear();
+        display.drawCenteredString(0, gameTimeText, textGradient, FONT_6x8, true);
+        
+        // Show left and right trophy icons
+        if (glintFrame >= 0) {
+            drawShiningThropy(display, 8, 0, glintFrame);
+            drawShiningThropy(display, TOTAL_WIDTH - 16, 0, glintFrame);
+        } else {
+            display.drawImage(8, 0, ICON_TROPHY_8x8, 8, 8);
+            display.drawImage(TOTAL_WIDTH - 16, 0, ICON_TROPHY_8x8, 8, 8);
+        }
+    }    
 }
 
 void MainDisplay::setNoGameMode() {
@@ -211,6 +228,7 @@ void MainDisplay::setEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, 
     endGameTimeIsNewRecord = true;
     endGameTimeGameLevel = level;
     endGameTimeRank = rank;
+    endGamePlayerName = "";
 
     // Cancel current ongoing mode loop
     if (cancelToken != nullptr) {
@@ -408,6 +426,7 @@ void MainDisplay::gameOverUpdateLoop() {
     RgbColor _buffer1[TOTAL_LEDS];
     RgbColor _buffer2[TOTAL_LEDS];
 
+    // Capture current display state in buffer1 to use as starting point for the transition animation
     display.copyCanvasTo(_buffer1);
 
     // Crate color gradients for texts
@@ -419,7 +438,6 @@ void MainDisplay::gameOverUpdateLoop() {
     display.drawCenteredString(0, "GAME OVER", redYelloMirrorGradient, FONT_6x8);
     display.copyCanvasTo(_buffer2);
 
-    //audioPlayer.play(AUDIO_FILE_GAME_OVER);
     audioPlayer.play(AUDIO_FILE_GAME_OVER);
     imageTransitionAnimation.horizontalCenterTransition(_buffer1, _buffer2, COLOR_RED, 300, localCancelToken);
 
@@ -512,6 +530,22 @@ void MainDisplay::endGameTimeUpdateLoop() {
     CancelToken localCancelToken;
     cancelToken = &localCancelToken;
 
+    RgbColor _buffer1[TOTAL_LEDS];
+    RgbColor _buffer2[TOTAL_LEDS];
+
+    // Capture current display state in buffer1 to use as starting point for the transition animation
+    display.copyCanvasTo(_buffer1);
+
+    // Draw 0.00 game time on the display and copy it to buffer2
+    RgbColor goldYellowMirrorGradient[ANIM_TEXT_FONT_HEIGHT];
+    display.mirroredColorGradient(COLOR_GOLD, COLOR_YELLOW, goldYellowMirrorGradient, ANIM_TEXT_FONT_HEIGHT);
+    drawGameEndTime(display, goldYellowMirrorGradient, 0, -1);
+    display.copyCanvasTo(_buffer2);
+
+    // Animate transition from previous screen to the end game time screen with a horizontal center inverse transition effect, 
+    // using gold as the transition color for a celebratory feel
+    imageTransitionAnimation.horizontalCenterInverseTransition(_buffer1, _buffer2, COLOR_GOLD.Dim(127), 300, localCancelToken);
+
     const float TOTAL_COUNTUP_TIME_S = 2.0; // Total time for the count-up animation in seconds
     const uint16_t TOTAL_COUNTUP_FRAMES = static_cast<uint16_t>(TOTAL_COUNTUP_TIME_S * MAIN_DISPLAY_MAX_FPS); // Total frames for the count-up animation based on max FPS
     const float SLOW_DOWN_FACTOR  = 0.8; // 80% of the count-up animation before slowing down
@@ -527,8 +561,6 @@ void MainDisplay::endGameTimeUpdateLoop() {
     uint32_t residualTimeMs = endGameTimeSpanMs - timeForSprintMs;
 
     // --- PHASE 1: SPRINT (0% -> 80%) ---
-    RgbColor goldYellowMirrorGradient[ANIM_TEXT_FONT_HEIGHT];
-    display.mirroredColorGradient(COLOR_GOLD, COLOR_YELLOW, goldYellowMirrorGradient, ANIM_TEXT_FONT_HEIGHT);
     for (uint16_t f = 0; f <= frameSprint; f++) {
         IF_CANCELLED(localCancelToken, break;)
 
@@ -574,10 +606,7 @@ void MainDisplay::endGameTimeUpdateLoop() {
     // in case of any rounding issues during the animation. It also remove the shining effect 
     // on the trophy for a more static and celebratory final screen.
     display.clear();
-    String finalTimeText = formatTimeSpan(endGameTimeSpanMs);
-    display.drawImage(8, 0, ICON_TROPHY_8x8, 8, 8);
-    display.drawImage(TOTAL_WIDTH - 16, 0, ICON_TROPHY_8x8, 8, 8);
-    display.drawCenteredString(0, finalTimeText, goldYellowMirrorGradient, FONT_6x8, true);
+    drawGameEndTime(display, goldYellowMirrorGradient, endGameTimeSpanMs, -1); // Pass -1 to disable glint effect for the final display
     display.show();
 
     // Signal mode completed only if the mode wasn't cancelled during the animation
@@ -598,6 +627,21 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
 
     RgbColor skyBlueGradient[ANIM_TEXT_FONT_HEIGHT] = SKY_BLUE_GRADIENT_COLORS;
     RgbColor neonGradient[ANIM_TEXT_FONT_HEIGHT] = NEON_GRADIENT_COLORS;
+
+    RgbColor _buffer1[TOTAL_LEDS];
+    RgbColor _buffer2[TOTAL_LEDS];
+
+    // Capture current display state in buffer1 to use as starting point for the transition animation
+    display.copyCanvasTo(_buffer1);
+
+    // Draw "HIGH SCORE!" on the display and copy it to buffer2
+    display.clear();
+    display.drawCenteredString(0, "HIGH SCORE!", neonGradient, FONT_6x8, true);
+    display.copyCanvasTo(_buffer2);
+
+    audioPlayer.play(AUDIO_FILE_NEW_HIGHSCORE);
+    // Animate transition from previous screen to the high score screen with a horizontal center inverse transition effect, using cyan as the transition color for a vibrant look
+    imageTransitionAnimation.horizontalCenterInverseTransition(_buffer1, _buffer2, COLOR_CYAN, 300, localCancelToken);
 
     // Flash "HIGH SCORE!" text with alternating gradients to create a celebratory effect
     for (uint8_t i = 0; i < 12; i++) {
@@ -689,17 +733,24 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
             showHighScroreLine(endGameTimeSpanMs, playerName + currentChar, endGameTimeRank);
         }
         else {
-             showHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank); 
+            showHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank); 
         }
         display.show();
 
         delay(MAIN_DISPLAY_MAX_FPS_MS);
     }
 
-    // Signal mode completed only if the mode wasn't cancelled during the animation
+    // Signal mode completed and update endGamePlayerName only if the mode wasn't cancelled during the animation
     if (!localCancelToken.isCancelled()) {
+        endGamePlayerName = playerName;
         modeDone = true;
     }
+
+    // Wait for mode change to exit the loop and clear the cancel token reference
+    while (!localCancelToken.isCancelled()) {
+        delay(100);
+    }
+
     cancelToken = nullptr;
 }
 
@@ -710,6 +761,6 @@ void MainDisplay::showHighScroreLine(uint32_t timeSpanMs, String name, uint8_t r
     String timeText = formatTimeSpan(timeSpanMs);
     display.clear();
     display.drawRightString(0, timeText, goldGradient, FONT_6x8, true);
-    display.drawString(0,0, String(rank) + ".", goldGradient, FONT_6x8, true);
+    display.drawString(0,0, String(rank + 1) + ".", goldGradient, FONT_6x8, true);
     display.drawString(15, 0, name, neonGradient, FONT_6x8, true);
 }

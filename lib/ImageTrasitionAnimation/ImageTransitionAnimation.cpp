@@ -25,3 +25,44 @@ void ImageTransitionAnimation::horizontalCenterTransition(const RgbColor* fromIm
         y2++; // Move the bottom line downwards
     }
 }
+
+void ImageTransitionAnimation::horizontalCenterInverseTransition(const RgbColor* fromImage, const RgbColor* toImage, RgbColor lineColor, uint16_t durationMs, CancelToken& cancelToken) {
+    int16_t width = display.getWidth();
+    int16_t height = display.getHeight();
+    int16_t hh = height / 2;
+    int16_t maxStep = hh + (height % 2); // Include one extra step for odd heights to reveal the center line
+    uint16_t delayMs = durationMs / (maxStep + 1);
+
+    for (int16_t step = 0; step <= maxStep; step++) {
+        if (cancelToken.isCancelled()) {
+            return; // Exit the transition if cancelled
+        }
+
+        int16_t yTop = step;
+        int16_t yBottom = height - 1 - step;
+
+        display.copyCanvasFrom(fromImage); // Start from the "fromImage" for each frame to ensure proper layering of the transition
+
+        // Reveal "toImage" from top edge to top line
+        if (yTop > 0) {
+            display.copyCanvasFrom(toImage, 0, 0, width, yTop, 0, 0);
+        }
+
+        // Reveal "toImage" from bottom line to bottom edge
+        if (yBottom < height - 1) {
+            int16_t bottomStart = yBottom + 1;
+            display.copyCanvasFrom(toImage, 0, bottomStart, width, height - bottomStart, 0, bottomStart);
+        }
+
+        // Draw moving lines while they are still on-screen and not crossed
+        if (yTop <= yBottom) {
+            display.drawLine(0, yTop, width - 1, yTop, lineColor); // Top line
+            if (yBottom != yTop) {
+                display.drawLine(0, yBottom, width - 1, yBottom, lineColor); // Bottom line
+            }
+        }
+
+        display.show();
+        delay(delayMs);
+    }
+}
