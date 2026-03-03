@@ -494,7 +494,7 @@ void MainDisplay::gameWinUpdateLoop() {
                 modeDone = true; // Signal that game win animation has finished when audio finishes playing
             }
         }
-        delay(50);
+        delay(MAIN_DISPLAY_MAX_FPS_MS);
     }
 
     cancelToken = nullptr; // Clear cancel token reference when exiting function

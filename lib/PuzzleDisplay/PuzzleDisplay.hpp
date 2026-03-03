@@ -125,6 +125,22 @@ public:
         return ((uint16_t)_brightness * 100) / 255;
     }
 
+    /**
+     * Get the color of a specific pixel from the canvas
+     * @param x X coordinate of the pixel
+     * @param y Y coordinate of the pixel
+     * @return The color of the pixel as an RgbColor object, or COLOR_BLACK if out of bounds
+     */
+    RgbColor getPixelColor(int16_t x, int16_t y) const 
+    {
+        int32_t index = getPixelIndex(x, y);
+        if (index == -1) {
+            return COLOR_BLACK;
+        }
+
+        return _canvas[index];
+    }
+
     // --- GRAPHIC PRIMITIVES ---
 
     /**
