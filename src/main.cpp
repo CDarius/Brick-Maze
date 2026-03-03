@@ -143,7 +143,7 @@ void setup() {
             audioPlayer.audioLoop();
         },
         "AudioTask",        // Name
-        4096,               // Stack size
+        8192,               // Stack size
         nullptr,            // Parameter
         5,                  // Priority (higher than default loop, but not max)
         nullptr,            // Task handle

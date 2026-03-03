@@ -4,6 +4,8 @@
 #include <SPIFFS.h>
 #include "Audio.h"
 #include <freertos/semphr.h>
+#include <driver/i2s.h>
+#include <math.h>
 
 #define AUDIO_MAX_VOLUME 21
 
@@ -23,19 +25,34 @@ class AudioPlayer {
         bool isPlayingLatched;
         uint32_t lastPlaybackActivityMs;
 
+        i2s_port_t m_i2s_port;
+        bool m_tonePlaying;
+        uint16_t m_toneFreq;
+        uint32_t m_toneEndMs;
+        float m_tonePhase;
+        uint8_t m_volume;
+
+        // Internal function to generate a tone. This is called repeatedly in the audio loop
+        // while a tone is active.
+        void generateTone();
+
     public:
         /**
          * @brief Construct a new Audio Player object.
          * 
          * @param i2s_port_number The I2S port number to use (0 or 1). Port 1 is recommended to avoid conflicts with other peripherals like RMT (for NeoPixels).
          */
-        AudioPlayer(uint8_t i2s_port_number = 0) : audio(false, 0, i2s_port_number) {
+        AudioPlayer(uint8_t i2s_port_number = 0) : audio(false, 0, i2s_port_number), m_i2s_port((i2s_port_t)i2s_port_number) {
             _mutex = xSemaphoreCreateMutex();
             newFilenameToPlay = "";
             hasPendingPlayback = false;
             isPlayingLatched = false;
             lastPlaybackActivityMs = 0;
+            m_tonePlaying = false;
+            m_tonePhase = 0.0f;
+            m_volume = AUDIO_MAX_VOLUME;
         }
+
         /**
          * Initializes the audio player with the specified I2S pin configuration. 
          * This should be called in the setup() function before attempting to play any audio.
@@ -46,6 +63,7 @@ class AudioPlayer {
         void begin(int bclk, int lrc, int dout) {
             audio.setPinout(bclk, lrc, dout);
             audio.setVolume(AUDIO_MAX_VOLUME); // Set default volume to maximum
+            m_volume = AUDIO_MAX_VOLUME;
         }
 
         /**
@@ -53,33 +71,14 @@ class AudioPlayer {
          * even if the file is still open. Use this in combination with the audio_info callback to detect when playback 
          * has actually stopped.
          */ 
-        inline bool isPlaying() {
-            bool currentlyRunning = false;
-            bool isPlayingNow = false;
-
-            if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
-                currentlyRunning = audio.isRunning();
-                if (currentlyRunning) {
-                    isPlayingLatched = true;
-                    lastPlaybackActivityMs = millis();
-                }
-
-                isPlayingNow = hasPendingPlayback || isPlayingLatched || currentlyRunning;
-                xSemaphoreGive(_mutex);
-            }
-
-            return isPlayingNow;
-        }    
+        bool isPlaying();
 
         /**
          * Sets the playback volume. The volume level can typically range from 0 (mute) to 21 (maximum), 
          * with a default of 10.
          * @param volume The desired volume level (0-21). Values outside this range are clamped
          */
-        void setVolume(uint8_t volume) { 
-            volume = volume > 0 ? volume : 0; // Ensure volume is not negative
-            audio.setVolume(volume); 
-        }
+        void setVolume(uint8_t volume);
 
         /**
          * Plays an audio file from the SPIFFS filesystem. 
@@ -87,47 +86,18 @@ class AudioPlayer {
          * @param filename The path to the audio file within SPIFFS (e.g., "/music/song.mp3"). The leading slash is required.
          * @return true if the file was successfully opened and playback started, false otherwise (e.g., file not found, unsupported format).
          */
-        void play(String filename) {
-            if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
-                newFilenameToPlay = filename; // Set the pending filename to play. The audio loop will handle starting playback.
-                hasPendingPlayback = true;
-                isPlayingLatched = true;
-                xSemaphoreGive(_mutex);
-            }
-        }
+        void play(String filename);
+
+        /**
+         * Plays a tone with the specified frequency and duration.
+         * This will stop any currently playing audio file.
+         * @param frequency The frequency of the tone in Hz.
+         * @param durationMs The duration of the tone in milliseconds.
+         */
+        void playTone(uint16_t frequency, uint32_t durationMs);
 
         /**
          * This function should be called repeatedly in the loop() function to allow the audio library to process audio data and handle events.
          */
-        void audioLoop() {
-            while(true) {
-                if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
-                    if (newFilenameToPlay.length() > 0) {
-                        // Start to play the next file
-                        if (!audio.connecttoFS(SPIFFS, newFilenameToPlay.c_str())) {
-                            Serial.println("Failed to play audio file: " + newFilenameToPlay);
-                            hasPendingPlayback = false;
-                            isPlayingLatched = false;
-                        } else {
-                            hasPendingPlayback = false;
-                            isPlayingLatched = true;
-                            lastPlaybackActivityMs = millis();
-                        }
-                        newFilenameToPlay = ""; // Clear the pending filename after starting playback
-                    }
-
-                    audio.loop();
-                    bool running = audio.isRunning();
-                    if (running) {
-                        isPlayingLatched = true;
-                        lastPlaybackActivityMs = millis();
-                    } else if (isPlayingLatched && !hasPendingPlayback && (millis() - lastPlaybackActivityMs > 200)) {
-                        isPlayingLatched = false;
-                    }
-                    xSemaphoreGive(_mutex);
-                }
-                delay(5); // Yield to other tasks. The audio library needs to be called frequently.
-            }
-
-        }
+        void audioLoop();
 };

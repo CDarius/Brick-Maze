@@ -560,6 +560,9 @@ void MainDisplay::endGameTimeUpdateLoop() {
     uint32_t timeForSprintMs = static_cast<uint32_t>(endGameTimeSpanMs * SLOW_DOWN_FACTOR);
     uint32_t residualTimeMs = endGameTimeSpanMs - timeForSprintMs;
 
+    long startBeepFrequency = 300; // Low tone
+    long endBeepFrequency = 900;   // High tone
+
     // --- PHASE 1: SPRINT (0% -> 80%) ---
     for (uint16_t f = 0; f <= frameSprint; f++) {
         IF_CANCELLED(localCancelToken, break;)
@@ -578,6 +581,8 @@ void MainDisplay::endGameTimeUpdateLoop() {
         glintFrame = (++glintFrame) % 16; // Loop glint frame for shining effect
         
         display.show();
+        long pitchAttuale = map(f, 0, TOTAL_COUNTUP_FRAMES, startBeepFrequency, endBeepFrequency);
+        audioPlayer.playTone(pitchAttuale, 25);
         delay(MAIN_DISPLAY_MAX_FPS_MS);
     }
 
@@ -599,6 +604,8 @@ void MainDisplay::endGameTimeUpdateLoop() {
         
         // Gradually increase delay to create a slowing down effect as we approach the final time
         display.show();
+        long pitchAttuale = map(f + frameSprint, 0, TOTAL_COUNTUP_FRAMES, startBeepFrequency, endBeepFrequency);
+        audioPlayer.playTone(pitchAttuale, 25);
         delay(MAIN_DISPLAY_MAX_FPS_MS + (f * 3));
     }
 
