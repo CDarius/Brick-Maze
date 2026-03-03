@@ -1,19 +1,31 @@
 #include <AudioPlayer.hpp>
 
+static float sinTable[256];
+static bool sinTableInitialized = false;
+
 void AudioPlayer::generateTone() {
+    if (!sinTableInitialized) {
+        for (int i = 0; i < 256; i++) {
+            sinTable[i] = sinf(i * 2.0f * PI / 256.0f);
+        }
+        sinTableInitialized = true;
+    }
+
     size_t bytes_written;
     int16_t samples[1024]; // 512 stereo samples (~11.6ms at 44.1kHz)
     
     // Map volume 0-21 to amplitude (approx 0-30000)
     int amplitude = (m_volume * 30000) / AUDIO_MAX_VOLUME;
     
+    float phaseIncrement = 256.0f * m_toneFreq / 44100.0f;
+
     for (int i = 0; i < 512; i++) {
-        int16_t sample = (int16_t)(sin(m_tonePhase) * amplitude);
+        int16_t sample = (int16_t)(sinTable[(int)m_tonePhase & 0xFF] * amplitude);
         samples[i * 2] = sample;
         samples[i * 2 + 1] = sample;
         
-        m_tonePhase += 2.0f * PI * m_toneFreq / 44100.0f;
-        while (m_tonePhase >= 2.0f * PI) m_tonePhase -= 2.0f * PI;
+        m_tonePhase += phaseIncrement;
+        while (m_tonePhase >= 256.0f) m_tonePhase -= 256.0f;
     }
     
     // Write to I2S with a small timeout to avoid blocking too long if buffer is full
