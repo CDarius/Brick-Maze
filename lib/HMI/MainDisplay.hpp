@@ -8,16 +8,6 @@
 #include <GameLevel.hpp>
 #include <CancelToken.hpp>
 
-#define MAIN_DISPLAY_MAX_FPS    20
-#define MAIN_DISPLAY_MAX_FPS_MS (1000 / MAIN_DISPLAY_MAX_FPS)
-
-#define MAIN_DISPLAY_MODE_COUNTDOWN 1
-#define MAIN_DISPLAY_MODE_NO_GAME   2
-#define MAIN_DISPLAY_MODE_GAME_OVER 3
-#define MAIN_DISPLAY_MODE_GAME_WIN  4
-#define MAIN_DISPLAY_MODE_TABLE_LEVELING 5
-#define MAIN_DISPLAY_MODE_SHOW_GAME_TIME 6
-
 class MainDisplay {
 private:
     AudioPlayer& audioPlayer;
@@ -40,13 +30,22 @@ private:
     GameLevel endGameTimeGameLevel;
     uint8_t endGameTimeRank;
 
+    // Controller status
+    float controllerX;
+    float controllerY;
+    bool controllerButtonPressed;
+
     // Modes update loops
     void noGameUpdateLoop();
     void countdownUpdateLoop();
     void gameOverUpdateLoop();
     void gameWinUpdateLoop();
     void tableLevelingUpdateLoop();
-    void showEndGameTimeUpdateLoop();
+    void endGameTimeUpdateLoop();
+    void endGameHighScoreUpdateLoop();
+
+    void showHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank);
+
 public:
     MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display, TextAnimation& textAnimation, ImageTransitionAnimation& imageTransitionAnimation) 
         : audioPlayer(audioPlayer), display(display), textAnimation(textAnimation), imageTransitionAnimation(imageTransitionAnimation) {
@@ -58,9 +57,14 @@ public:
     void setGameOverMode();
     void setGameWinMode();
     void setTableLevelingMode();
-    void setShowEndGameTimeMode(uint32_t timeSpanMs);
-    void setShowEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank);
+    void setEndGameTimeMode(uint32_t timeSpanMs);
+    void setEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank);
     void updateLoop();
+    void updateControllerStatus(float x, float y, bool buttonPressed) {
+        controllerX = x;
+        controllerY = y;
+        controllerButtonPressed = buttonPressed;
+    }
 
     bool isModeDone() const {
         return modeDone;

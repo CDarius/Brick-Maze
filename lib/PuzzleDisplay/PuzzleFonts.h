@@ -2,6 +2,9 @@
 
 #include <Arduino.h>
 
+#define DEL_FONT_CHAR 0x7F
+#define END_FONT_CHAR 0x80
+
 struct FontDefinition {
     uint8_t height; // Character height in pixels
     uint8_t std_width; // Character standard (most common) width in pixels
@@ -264,13 +267,13 @@ const uint8_t FONT_5x8_DATA[][6] = {
 };
 
 // --- FONT 3: 8px Height (Alfanumerico 6x8) ---
-// Range: ASCII 32 (' ') a 126 ('~')
+// Range: ASCII 32 (' ') a 128 (0x80)
 const FontDefinition FONT_6x8_DEF = {
     .height = 8,
     .std_width = 6,
     .max_width = 8,
     .first_char = 32,
-    .last_char = 126
+    .last_char = 128
 };
 
 const uint8_t FONT_6x8_DATA[][9] PROGMEM = {
@@ -369,4 +372,6 @@ const uint8_t FONT_6x8_DATA[][9] PROGMEM = {
     { 0x02, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // | 0x7C (124)
     { 0x04, 0xC3, 0xFF, 0x7E, 0x18, 0x00, 0x00, 0x00, 0x00 }, // } 0x7D (125)
     { 0x07, 0x18, 0x1C, 0x0C, 0x3C, 0x30, 0x38, 0x18, 0x00 }, // ~ 0x7E (126)
+    { 0x08, 0x18, 0x3C, 0x7E, 0xDB, 0x99, 0x18, 0x18, 0x18 }, // DEL  0x7F (127)
+    { 0x08, 0x1F, 0x15, 0x15, 0x00, 0xF8, 0x88, 0x88, 0x70 }, // END  0x80 (128)
 };

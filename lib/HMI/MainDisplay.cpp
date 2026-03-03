@@ -1,5 +1,49 @@
 #include "MainDisplay.hpp"
 
+#define MAIN_DISPLAY_MAX_FPS    20
+#define MAIN_DISPLAY_MAX_FPS_MS (1000 / MAIN_DISPLAY_MAX_FPS)
+
+#define MAIN_DISPLAY_MODE_COUNTDOWN 1
+#define MAIN_DISPLAY_MODE_NO_GAME   2
+#define MAIN_DISPLAY_MODE_GAME_OVER 3
+#define MAIN_DISPLAY_MODE_GAME_WIN  4
+#define MAIN_DISPLAY_MODE_TABLE_LEVELING 5
+#define MAIN_DISPLAY_MODE_END_GAME_TIME 6
+#define MAIN_DISPLAY_MODE_END_GAME_HIGH_SCORE 7
+
+#define SKY_BLUE_GRADIENT_COLORS { \
+    RgbColor(0, 50, 150), \
+    RgbColor(0, 50, 150), \
+    RgbColor(0, 50, 150), \
+    RgbColor(130, 230, 255), \
+    RgbColor(0, 180, 200), \
+    RgbColor(0, 180, 200), \
+    RgbColor(0, 180, 200), \
+    RgbColor(0, 180, 200) \
+}
+
+#define NEON_GRADIENT_COLORS { \
+    RgbColor(120, 0, 120), \
+    RgbColor(120, 0, 120), \
+    RgbColor(120, 0, 120), \
+    RgbColor(255, 180, 230), \
+    RgbColor(255, 0, 50), \
+    RgbColor(255, 0, 50), \
+    RgbColor(255, 0, 50), \
+    RgbColor(255, 0, 50) \
+}
+
+#define GOLD_GRADIENT_COLORS { \
+    RgbColor(139, 69, 19), \
+    RgbColor(139, 69, 19), \
+    RgbColor(139, 69, 19), \
+    RgbColor(255, 230, 150), \
+    RgbColor(255, 165, 0), \
+    RgbColor(255, 165, 0), \
+    RgbColor(255, 165, 0), \
+    RgbColor(255, 165, 0) \
+}
+
 namespace {
     /**
      * Helper function to format a time span in milliseconds into a string with seconds 
@@ -135,8 +179,8 @@ void MainDisplay::setTableLevelingMode() {
     }
 }
 
-void MainDisplay::setShowEndGameTimeMode(uint32_t timeSpanMs) {
-    uint8_t newMode = MAIN_DISPLAY_MODE_SHOW_GAME_TIME;
+void MainDisplay::setEndGameTimeMode(uint32_t timeSpanMs) {
+    uint8_t newMode = MAIN_DISPLAY_MODE_END_GAME_TIME;
     bool modeChanged = newMode != currentMode;
 
     if (!modeChanged) {
@@ -146,7 +190,6 @@ void MainDisplay::setShowEndGameTimeMode(uint32_t timeSpanMs) {
     currentMode = newMode;
     modeDone = false;
     endGameTimeSpanMs = timeSpanMs;
-    endGameTimeIsNewRecord = false;
 
     // Cancel current ongoing mode loop
     if (cancelToken != nullptr) {
@@ -154,8 +197,8 @@ void MainDisplay::setShowEndGameTimeMode(uint32_t timeSpanMs) {
     }
 }
 
-void MainDisplay::setShowEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank) {
-    uint8_t newMode = MAIN_DISPLAY_MODE_SHOW_GAME_TIME;
+void MainDisplay::setEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank) {
+    uint8_t newMode = MAIN_DISPLAY_MODE_END_GAME_HIGH_SCORE;
     bool modeChanged = newMode != currentMode;
 
     if (!modeChanged) {
@@ -200,8 +243,12 @@ void MainDisplay::updateLoop() {
                 tableLevelingUpdateLoop();
                 break;
 
-            case MAIN_DISPLAY_MODE_SHOW_GAME_TIME:
-                showEndGameTimeUpdateLoop();
+            case MAIN_DISPLAY_MODE_END_GAME_TIME:
+                endGameTimeUpdateLoop();
+                break;
+
+            case MAIN_DISPLAY_MODE_END_GAME_HIGH_SCORE:
+                endGameHighScoreUpdateLoop();
                 break;
         }
     }   
@@ -236,7 +283,6 @@ void MainDisplay::noGameUpdateLoop() {
         IF_CANCELLED(localCancelToken, break;)
     };
 
-    modeDone = true;
     cancelToken = nullptr; // Clear cancel token reference when exiting loop
 }
 
@@ -352,7 +398,6 @@ void MainDisplay::countdownUpdateLoop() {
         delay(MAIN_DISPLAY_MAX_FPS_MS); // Limit update rate to max FPS
     }
 
-    modeDone = true;
     cancelToken = nullptr; // Clear the token when exiting the loop
 }
 
@@ -388,7 +433,6 @@ void MainDisplay::gameOverUpdateLoop() {
         delay(50);
     }
 
-    modeDone = true; // Ensure modeDone is set to true when exiting the loop in case of cancellation
     cancelToken = nullptr; // Clear cancel token reference when exiting function
 }
 
@@ -435,7 +479,6 @@ void MainDisplay::gameWinUpdateLoop() {
         delay(50);
     }
 
-    modeDone = true; // Ensure modeDone is set to true when exiting the loop in case of cancellation
     cancelToken = nullptr; // Clear cancel token reference when exiting function
 }
 
@@ -462,11 +505,10 @@ void MainDisplay::tableLevelingUpdateLoop() {
         delay(160);
     }
 
-    modeDone = true;
     cancelToken = nullptr; // Clear cancel token reference when exiting function
 }
 
-void MainDisplay::showEndGameTimeUpdateLoop() {
+void MainDisplay::endGameTimeUpdateLoop() {
     CancelToken localCancelToken;
     cancelToken = &localCancelToken;
 
@@ -537,11 +579,137 @@ void MainDisplay::showEndGameTimeUpdateLoop() {
     display.drawImage(TOTAL_WIDTH - 16, 0, ICON_TROPHY_8x8, 8, 8);
     display.drawCenteredString(0, finalTimeText, goldYellowMirrorGradient, FONT_6x8, true);
     display.show();
-    
-    modeDone = true;
+
+    // Signal mode completed only if the mode wasn't cancelled during the animation
+    if (!localCancelToken.isCancelled()) {
+        modeDone = true;
+    }
     while (!localCancelToken.isCancelled()) {
         delay(100); // Wait for mode change
     }
 
+
     cancelToken = nullptr;
+}
+
+void MainDisplay::endGameHighScoreUpdateLoop() {
+    CancelToken localCancelToken;
+    cancelToken = &localCancelToken;
+
+    RgbColor skyBlueGradient[ANIM_TEXT_FONT_HEIGHT] = SKY_BLUE_GRADIENT_COLORS;
+    RgbColor neonGradient[ANIM_TEXT_FONT_HEIGHT] = NEON_GRADIENT_COLORS;
+
+    // Flash "HIGH SCORE!" text with alternating gradients to create a celebratory effect
+    for (uint8_t i = 0; i < 12; i++) {
+        IF_CANCELLED(localCancelToken, break;)
+
+        display.clear();
+
+        if (i % 2 == 0) {
+            display.drawCenteredString(0, "HIGH SCORE!", skyBlueGradient, FONT_6x8, true);
+        } else {
+            display.drawCenteredString(0, "HIGH SCORE!", neonGradient, FONT_6x8, true);
+        }
+
+        display.show();
+        delay(MAIN_DISPLAY_MAX_FPS_MS * 4);
+    }
+
+    // After flashing, show the final time, high score rank and let the player enter their name 
+    // The player can change the character by moving the controller up or down, and confirm the character 
+    // by pressing a button
+
+    uint16_t frameCounter = 0;
+    String playerName = String("");
+    const String nameChars = String("ABCDEFGHIJKLMNOPQRSTUVWXYZ_.-+/") + String((char)DEL_FONT_CHAR) + String((char)END_FONT_CHAR);
+    const int16_t nameCharsCount = nameChars.length();
+    int16_t currentCharIndex = 0;
+    float charStepAccumulator = 0.0f;
+    uint32_t lastInputUpdateMs = millis();
+    const float controllerDeadband = 0.2f;
+    const float maxCharsPerSecond = 10.0f;
+    bool buttonWasPressed = false;
+    while (!localCancelToken.isCancelled() && playerName.length() < 3) {
+        // Enter the char when the button is pressed
+        if (controllerButtonPressed && !buttonWasPressed) {
+            const char charToAdd = nameChars[currentCharIndex];
+            if (charToAdd == DEL_FONT_CHAR) {
+                if (playerName.length() > 0) {
+                    playerName = playerName.substring(0, playerName.length() - 1); // Remove last character for delete
+                }
+            } else if (charToAdd == END_FONT_CHAR) {
+                while (playerName.length() < 3) {
+                    playerName += " "; // Pad with spaces if name is less than 3 characters when confirming
+                }
+            } else {
+                playerName += charToAdd;
+            }
+        }
+        buttonWasPressed = controllerButtonPressed;
+
+        // Get delta time since last input update to calculate how many characters to move in the name selection based on controller input
+        uint32_t nowMs = millis();
+        float dtSeconds = (float)(nowMs - lastInputUpdateMs) / 1000.0f;
+        lastInputUpdateMs = nowMs;
+
+        // Read controller X axis and apply deadband to avoid unintentional character changes when the controller is near the center position. 
+        // The effective input will be scaled to the range [-1, 1] after applying the deadband.
+        float effectiveInput = 0.0f;
+        if (controllerX > controllerDeadband) {
+            effectiveInput = (controllerX - controllerDeadband) / (1.0f - controllerDeadband);
+        } else if (controllerX < -controllerDeadband) {
+            effectiveInput = (controllerX + controllerDeadband) / (1.0f - controllerDeadband);
+        }
+
+        charStepAccumulator += (effectiveInput * maxCharsPerSecond) * dtSeconds;
+
+        if (controllerButtonPressed)
+        {
+            charStepAccumulator = 0; // Reset character step accumulator when the button is pressed to allow precise character selection without overshooting due to accumulated input
+        }
+
+        if (abs(controllerX) > controllerDeadband * 1.2f) {
+            frameCounter = 0; // Don't blink while the player is actively changing the character to provide better feedback on the selection change
+        }
+
+        // Convert the accumulated character steps to an integer to determine how many characters to move in 
+        // the name selection.
+        int16_t charSteps = (int16_t)charStepAccumulator;
+        if (charSteps != 0) {
+            currentCharIndex = (currentCharIndex + charSteps + nameCharsCount) % nameCharsCount;
+            charStepAccumulator -= static_cast<float>(charSteps);
+        }
+
+        // Display the current name selection with a blinking effect on the currently selected character to indicate that it's active. 
+        String currentChar = String(nameChars[currentCharIndex]);
+        bool blinkOn = frameCounter % 16 < 8;
+        frameCounter++;
+
+        if (blinkOn && playerName.length() < 3) {
+            showHighScroreLine(endGameTimeSpanMs, playerName + currentChar, endGameTimeRank);
+        }
+        else {
+             showHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank); 
+        }
+        display.show();
+
+        delay(MAIN_DISPLAY_MAX_FPS_MS);
+    }
+
+    // Signal mode completed only if the mode wasn't cancelled during the animation
+    if (!localCancelToken.isCancelled()) {
+        modeDone = true;
+    }
+    cancelToken = nullptr;
+}
+
+void MainDisplay::showHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank) {    
+    RgbColor neonGradient[ANIM_TEXT_FONT_HEIGHT] = NEON_GRADIENT_COLORS;
+    RgbColor goldGradient[ANIM_TEXT_FONT_HEIGHT] = GOLD_GRADIENT_COLORS;
+    
+    String timeText = formatTimeSpan(timeSpanMs);
+    display.clear();
+    display.drawRightString(0, timeText, goldGradient, FONT_6x8, true);
+    display.drawString(0,0, String(rank) + ".", goldGradient, FONT_6x8, true);
+    display.drawString(15, 0, name, neonGradient, FONT_6x8, true);
 }

@@ -264,6 +264,34 @@ public:
     }
 
     /**
+     * Draw a String right-aligned on the display
+     * @param y Y Position
+     * @param text The string to draw
+     * @param color Text color
+     * @param font Font identifier (FONT_4x6, FONT_5x8, FONT_6x8)
+     * @param use_std_width If true, use the font's standard width for spacing; if false, use the actual character width
+     */
+    void drawRightString(int16_t y, String text, RgbColor color, uint8_t font, bool use_std_width = false) {
+        int16_t textWidth = getStringWidth(text, font, use_std_width);
+        int16_t x = TOTAL_WIDTH - textWidth;
+        drawString(x, y, text, color, font, use_std_width);
+    }
+    
+    /**
+     * Draw a String right-aligned on the display
+     * @param y Y Position
+     * @param text The string to draw
+     * @param color Array of color to apply vertically to all characters (color[0] first char pixel row, color[1] second char pixel row, etc.). It must match the font height.
+     * @param font Font identifier (FONT_4x6, FONT_5x8, FONT_6x8)
+     * @param use_std_width If true, use the font's standard width for spacing; if false, use the actual character width
+     */
+    void drawRightString(int16_t y, String text, RgbColor color[], uint8_t font, bool use_std_width = false) {
+        int16_t textWidth = getStringWidth(text, font, use_std_width);
+        int16_t x = TOTAL_WIDTH - textWidth;
+        drawString(x, y, text, color, font, use_std_width);
+    }
+
+    /**
      * Calculate the width of a string in pixels for a given font
       * @param text The string to measure
       * @param font Font identifier (FONT_4x6, FONT_5x8, FONT_6x8)
