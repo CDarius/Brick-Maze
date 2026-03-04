@@ -9,11 +9,39 @@
 #include <CancelToken.hpp>
 
 class MainDisplay {
+public:
+    MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display)
+        : audioPlayer(audioPlayer), display(display), textAnimation(display), imageTransitionAnimation(display) {
+        setNoGameMode();
+    }
+
+    void setNoGameMode();
+    void setCountdownMode(unsigned long endTimeMs, uint32_t durationMs, uint32_t criticalThresholdMs);
+    void setGameOverMode();
+    void setGameWinMode();
+    void setTableLevelingMode();
+    void setEndGameTimeMode(uint32_t timeSpanMs);
+    void setEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank);
+    void updateLoop();
+    void updateControllerStatus(float x, float y, bool buttonPressed) {
+        controllerX = x;
+        controllerY = y;
+        controllerButtonPressed = buttonPressed;
+    }
+
+    bool isModeDone() const {
+        return modeDone;
+    }
+
+    String getEndGamePlayerName() const {
+        return endGamePlayerName;
+    }
+
 private:
     AudioPlayer& audioPlayer;
     PuzzleDisplay& display;
-    TextAnimation& textAnimation;
-    ImageTransitionAnimation& imageTransitionAnimation;
+    TextAnimation textAnimation;
+    ImageTransitionAnimation imageTransitionAnimation;
 
     uint8_t currentMode;
     bool modeDone;
@@ -46,32 +74,4 @@ private:
     void endGameHighScoreUpdateLoop();
 
     void showHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank);
-
-public:
-    MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display, TextAnimation& textAnimation, ImageTransitionAnimation& imageTransitionAnimation) 
-        : audioPlayer(audioPlayer), display(display), textAnimation(textAnimation), imageTransitionAnimation(imageTransitionAnimation) {
-        setNoGameMode();
-    }
-
-    void setNoGameMode();
-    void setCountdownMode(unsigned long endTimeMs, uint32_t durationMs, uint32_t criticalThresholdMs);
-    void setGameOverMode();
-    void setGameWinMode();
-    void setTableLevelingMode();
-    void setEndGameTimeMode(uint32_t timeSpanMs);
-    void setEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank);
-    void updateLoop();
-    void updateControllerStatus(float x, float y, bool buttonPressed) {
-        controllerX = x;
-        controllerY = y;
-        controllerButtonPressed = buttonPressed;
-    }
-
-    bool isModeDone() const {
-        return modeDone;
-    }
-
-    String getEndGamePlayerName() const {
-        return endGamePlayerName;
-    }
 };

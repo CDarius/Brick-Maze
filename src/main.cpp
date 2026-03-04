@@ -15,8 +15,6 @@
 
 #include <AudioPlayer.hpp>
 #include <PuzzleDisplay.hpp>
-#include <TextAnimation.hpp>
-#include <ImageTransitionAnimation.hpp>
 #include <MainDisplay.hpp>
 #include <HighScore.hpp>
 
@@ -35,9 +33,7 @@ Game game(xServo, yServo);
 AudioPlayer audioPlayer(1); // Use I2S port 1. Display uses I2S0 (ESP32) or LCD (ESP32-S3).
 
 PuzzleDisplay display(PUZZLE_DISPLAY_PIXEL_PIN);
-TextAnimation textAnimation(display);
-ImageTransitionAnimation imageTransitionAnimation(display);
-MainDisplay mainDisplay(audioPlayer, display, textAnimation, imageTransitionAnimation);
+MainDisplay mainDisplay(audioPlayer, display);
 HighScore highScore;
 
 GameLevel nextGameLevel = GameLevel::EASY;
