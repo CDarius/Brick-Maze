@@ -58,10 +58,15 @@ void AudioPlayer::setVolume(uint8_t volume) {
 }
 
 void AudioPlayer::play(const char* filename) {
+    if (filename == nullptr || strlen(filename) == 0) {
+        return;
+    }
+
     if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
         newFilenameToPlay = filename; // Set the pending filename to play. The audio loop will handle starting playback.
         hasPendingPlayback = true;
         isPlayingLatched = true;
+        lastPlaybackActivityMs = millis();
         xSemaphoreGive(_mutex);
     }
 }
@@ -71,7 +76,7 @@ void AudioPlayer::playTone(uint16_t frequency, uint32_t durationMs) {
         if (audio.isRunning()) {
             audio.stopSong();
         }
-        newFilenameToPlay = nullptr; // Cancel any pending file
+        newFilenameToPlay = ""; // Cancel any pending file
         hasPendingPlayback = false;
         
         if (!m_tonePlaying) m_tonePhase = 0.0f; // Reset phase if starting new tone sequence
@@ -88,14 +93,34 @@ void AudioPlayer::playTone(uint16_t frequency, uint32_t durationMs) {
     }
 }
 
+void AudioPlayer::stop() {
+    if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
+        if (audio.isRunning()) {
+            audio.stopSong();
+        }
+        newFilenameToPlay = ""; // Clear any pending filename
+        hasPendingPlayback = false;
+        m_tonePlaying = false; // Stop tone if playing
+        isPlayingLatched = false;
+        xSemaphoreGive(_mutex);
+    }
+}
+
 void AudioPlayer::audioLoop() {
     while(true) {
         if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
-            if (newFilenameToPlay != nullptr && strlen(newFilenameToPlay) > 0) {
+            if (hasPendingPlayback && newFilenameToPlay.length() > 0) {
                 m_tonePlaying = false; // Stop tone if new file requested
+                String filenameToPlay = newFilenameToPlay;
+
+                if (audio.isRunning()) {
+                    audio.stopSong();
+                    audio.loop();
+                }
+
                 // Start to play the next file
-                if (!audio.connecttoFS(SPIFFS, newFilenameToPlay)) {
-                    Serial.println("Failed to play audio file: " + String(newFilenameToPlay));
+                if (!audio.connecttoFS(SPIFFS, filenameToPlay.c_str())) {
+                    Serial.println("Failed to play audio file: " + filenameToPlay);
                     hasPendingPlayback = false;
                     isPlayingLatched = false;
                 } else {
@@ -103,7 +128,7 @@ void AudioPlayer::audioLoop() {
                     isPlayingLatched = true;
                     lastPlaybackActivityMs = millis();
                 }
-                newFilenameToPlay = nullptr; // Clear the pending filename after starting playback
+                newFilenameToPlay = ""; // Clear the pending filename after starting playback
             }
 
             if (m_tonePlaying) {

@@ -77,5 +77,5 @@ private:
 
     void drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank);
     void showHighScoreList(GameLevel level, CancelToken& cancelToken);
-    void showBrickMazeTitleScreen(CancelToken& cancelToken);
+    void showBrickMazeTitleScreen(CancelToken& cancelToken, bool playTitleAudio);
 };

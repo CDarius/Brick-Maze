@@ -219,6 +219,7 @@ void setup() {
     game.servoCalibration(imu);
 
     audioPlayer.play(AUDIO_FILE_SYSTEM_READY);
+    delay(2000);
     mainDisplay.setNoGameMode();
     Serial.println("Initialization complete. Entering main loop.");
 }

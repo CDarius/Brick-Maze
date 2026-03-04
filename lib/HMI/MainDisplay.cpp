@@ -1,5 +1,6 @@
 #include "MainDisplay.hpp"
 #include "FallingChars.hpp"
+#include "DemolitionCharsAnimation.hpp"
 #include "AudioPlayer.hpp"
 
 #define MAIN_DISPLAY_MAX_FPS    20
@@ -305,20 +306,21 @@ void MainDisplay::noGameUpdateLoop() {
     CancelToken localCancelToken;
     cancelToken = &localCancelToken;
 
-    // Crate color gradients for texts
-    RgbColor redYelloMirrorGradient[ANIM_TEXT_FONT_HEIGHT];
-    display.mirroredColorGradient(COLOR_RED, COLOR_YELLOW, redYelloMirrorGradient, ANIM_TEXT_FONT_HEIGHT);
+    unsigned long nextTitleAudioTimeMs = 0;
 
     while (!localCancelToken.isCancelled()) {
         // ----------------------
         // -- GAME TITLE SCREEN --
         // ----------------------
-        //showBrickMazeTitleScreen(localCancelToken);
-        //IF_CANCELLED(localCancelToken, break;)
-        audioPlayer.play(AUDIO_FILE_LEGO_SNAP);
-        delay(2000);
+        unsigned long now = millis();
+        bool playTitleAudio = false;
+        if (now >= nextTitleAudioTimeMs) {
+            playTitleAudio = true;
+            nextTitleAudioTimeMs = now + 10 * 60 * 1000; // Play title audio every 10 minutes
+        }
+        showBrickMazeTitleScreen(localCancelToken, playTitleAudio);
+        IF_CANCELLED(localCancelToken, break;)
 
-        /*
         // ----------------------
         // -- EASY HIGH SCORES --
         // ----------------------
@@ -337,29 +339,7 @@ void MainDisplay::noGameUpdateLoop() {
         showHighScoreList(GameLevel::HARD, localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
 
-        // -----------------
-        // -- HOW TO PLAY --
-        // -----------------
-        textAnimation.showText("HOW TO PLAY:", redYelloMirrorGradient, TEXT_POSITION_CENTER);
-        IF_CANCELLED(localCancelToken, break;)
-        delayCancellable(1000, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-        textAnimation.verticalScrollIn("USE THE CONTROLLER", redYelloMirrorGradient, TEXT_POSITION_LEFT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-        textAnimation.verticalScrollIn("TO MOVE THE MAZE.", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-        textAnimation.verticalScrollIn("REACH THE END", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-        textAnimation.verticalScrollIn("BEFORE THE TIMER", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-        textAnimation.verticalScrollIn("RUNS OUT", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-        textAnimation.verticalScrollIn("", redYelloMirrorGradient, TEXT_POSITION_RIGHT, 2, ANIM_V_SCROLL_DIRECTION_BOTTOM_TO_TOP, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-        delayCancellable(2000, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-        */
-    };
+    }
 
     cancelToken = nullptr; // Clear cancel token reference when exiting loop
 }
@@ -883,11 +863,10 @@ void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
     delayCancellable(1500, cancelToken, 100);
 }
 
-void MainDisplay::showBrickMazeTitleScreen(CancelToken& cancelToken) {
+void MainDisplay::showBrickMazeTitleScreen(CancelToken& cancelToken, bool playTitleAudio) {
     RgbColor goldGradient[ANIM_TEXT_FONT_HEIGHT] = BRIGHT_GOLD_GRADIENT_COLORS;
     RgbColor redGradient[ANIM_TEXT_FONT_HEIGHT] = BRIGHT_RED_GRADIENT_COLORS;
     FallingCharsAnimation fallingAnimation(display, audioPlayer);
-    fallingAnimation.setBounceAudioClip(AUDIO_FILE_LEGO_SNAP);
 
     // Get words widths to center them together on the display
     display.clear();
@@ -896,12 +875,71 @@ void MainDisplay::showBrickMazeTitleScreen(CancelToken& cancelToken) {
     uint16_t totalTextWidth = brickW + 6 + mazeW;
 
     // Animate the fist word: BRICK
-    uint16_t startX = (display.getWidth() - totalTextWidth) / 2;
-    fallingAnimation.InAnimation(startX, "BRICK", redGradient, 600, cancelToken);
+    uint16_t brickX = (display.getWidth() - totalTextWidth) / 2;
+    fallingAnimation.InAnimation(brickX, "BRICK", redGradient, 600, cancelToken);
+    IF_CANCELLED(cancelToken, return;)
 
     // Animate the second word: MAZE
-    startX += brickW + 6; // 6 pixels of spacing between the two words
-    fallingAnimation.InAnimation(startX, "MAZE", goldGradient, 600, cancelToken);
+    uint16_t mazeX = brickX + brickW + 6; // 6 pixels of spacing between the two words
+    fallingAnimation.InAnimation(mazeX, "MAZE", goldGradient, 600, cancelToken);
+    IF_CANCELLED(cancelToken, return;)
 
+    if (!playTitleAudio) {
+        delayCancellable(1500, cancelToken, 100);
+
+        // Make the title blink
+        for (uint8_t i = 0; i < 6; i++) {
+            IF_CANCELLED(cancelToken, return;)
+
+            display.clear();
+            if (i % 2 == 0) {
+                display.fillRect(0, 0, mazeX - 3, display.getHeight(), COLOR_RED);
+                display.fillRect(mazeX - 3, 0, display.getWidth() - mazeX + 3, display.getHeight(), COLOR_GOLD);
+                display.drawString(brickX, 0, "BRICK", COLOR_BLACK, FONT_6x8);
+                display.drawString(mazeX, 0, "MAZE", COLOR_BLACK, FONT_6x8);            
+            } else {
+                display.drawString(brickX, 0, "BRICK", redGradient, FONT_6x8);
+                display.drawString(mazeX, 0, "MAZE", goldGradient, FONT_6x8);
+            }
+
+            display.show();
+            delay(50);
+        } 
+    } else {
+        audioPlayer.play(AUDIO_FILE_BRICK_MAZE);
+
+        // Wait for the laugh in the audio
+        delayCancellable(2600, cancelToken, 100);
+        IF_CANCELLED(cancelToken, { audioPlayer.stop(); return; })
+
+        // Blink until the end of the audio to sync the title animation with the audio for a more impactful presentation
+        uint16_t frame = 0;
+        while (audioPlayer.isPlaying()) {
+            IF_CANCELLED(cancelToken, { audioPlayer.stop(); return; })
+
+            display.clear();
+            if (frame % 2 == 0) {
+                display.fillRect(0, 0, mazeX - 3, display.getHeight(), COLOR_RED);
+                display.fillRect(mazeX - 3, 0, display.getWidth() - mazeX + 3, display.getHeight(), COLOR_GOLD);
+                display.drawString(brickX, 0, "BRICK", COLOR_BLACK, FONT_6x8);
+                display.drawString(mazeX, 0, "MAZE", COLOR_BLACK, FONT_6x8);            
+            } else {
+                display.drawString(brickX, 0, "BRICK", redGradient, FONT_6x8);
+                display.drawString(mazeX, 0, "MAZE", goldGradient, FONT_6x8);
+            }
+
+            display.show();
+            delay(50);
+            frame++;
+        }
+    }
+
+    // Run the demolition animation
+    DemolitionCharsAnimation demolitionChars(display);
+    demolitionChars.addText(brickX, "BRICK", redGradient);
+    demolitionChars.addText(mazeX, "MAZE", goldGradient);
+    demolitionChars.run(cancelToken);
+
+    // Small pause after the demolition animation before starting the next screen to give a moment of visual rest
     delayCancellable(1500, cancelToken, 100);
 }

@@ -21,7 +21,7 @@
 class AudioPlayer {
     private:
         Audio audio;
-        const char* newFilenameToPlay;
+        String newFilenameToPlay;
         SemaphoreHandle_t _mutex;
         bool hasPendingPlayback;
         bool isPlayingLatched;
@@ -97,6 +97,11 @@ class AudioPlayer {
          * @param durationMs The duration of the tone in milliseconds.
          */
         void playTone(uint16_t frequency, uint32_t durationMs);
+
+        /**
+         * Stops any currently playing audio file or tone.
+         */
+        void stop();
 
         /**
          * This function should be called repeatedly in the loop() function to allow the audio library to process audio data and handle events.
