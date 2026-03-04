@@ -19,7 +19,7 @@
 class AudioPlayer {
     private:
         Audio audio;
-        String newFilenameToPlay;
+        const char* newFilenameToPlay;
         SemaphoreHandle_t _mutex;
         bool hasPendingPlayback;
         bool isPlayingLatched;
@@ -86,7 +86,7 @@ class AudioPlayer {
          * @param filename The path to the audio file within SPIFFS (e.g., "/music/song.mp3"). The leading slash is required.
          * @return true if the file was successfully opened and playback started, false otherwise (e.g., file not found, unsupported format).
          */
-        void play(String filename);
+        void play(const char* filename);
 
         /**
          * Plays a tone with the specified frequency and duration.

@@ -57,7 +57,7 @@ void AudioPlayer::setVolume(uint8_t volume) {
     m_volume = volume;
 }
 
-void AudioPlayer::play(String filename) {
+void AudioPlayer::play(const char* filename) {
     if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
         newFilenameToPlay = filename; // Set the pending filename to play. The audio loop will handle starting playback.
         hasPendingPlayback = true;
@@ -71,7 +71,7 @@ void AudioPlayer::playTone(uint16_t frequency, uint32_t durationMs) {
         if (audio.isRunning()) {
             audio.stopSong();
         }
-        newFilenameToPlay = ""; // Cancel any pending file
+        newFilenameToPlay = nullptr; // Cancel any pending file
         hasPendingPlayback = false;
         
         if (!m_tonePlaying) m_tonePhase = 0.0f; // Reset phase if starting new tone sequence
@@ -91,11 +91,11 @@ void AudioPlayer::playTone(uint16_t frequency, uint32_t durationMs) {
 void AudioPlayer::audioLoop() {
     while(true) {
         if (xSemaphoreTake(_mutex, portMAX_DELAY)) {
-            if (newFilenameToPlay.length() > 0) {
+            if (newFilenameToPlay != nullptr && strlen(newFilenameToPlay) > 0) {
                 m_tonePlaying = false; // Stop tone if new file requested
                 // Start to play the next file
-                if (!audio.connecttoFS(SPIFFS, newFilenameToPlay.c_str())) {
-                    Serial.println("Failed to play audio file: " + newFilenameToPlay);
+                if (!audio.connecttoFS(SPIFFS, newFilenameToPlay)) {
+                    Serial.println("Failed to play audio file: " + String(newFilenameToPlay));
                     hasPendingPlayback = false;
                     isPlayingLatched = false;
                 } else {
@@ -103,7 +103,7 @@ void AudioPlayer::audioLoop() {
                     isPlayingLatched = true;
                     lastPlaybackActivityMs = millis();
                 }
-                newFilenameToPlay = ""; // Clear the pending filename after starting playback
+                newFilenameToPlay = nullptr; // Clear the pending filename after starting playback
             }
 
             if (m_tonePlaying) {
