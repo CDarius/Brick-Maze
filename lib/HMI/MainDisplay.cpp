@@ -1,4 +1,6 @@
 #include "MainDisplay.hpp"
+#include "FallingChars.hpp"
+#include "AudioPlayer.hpp"
 
 #define MAIN_DISPLAY_MAX_FPS    20
 #define MAIN_DISPLAY_MAX_FPS_MS (1000 / MAIN_DISPLAY_MAX_FPS)
@@ -42,6 +44,28 @@
     RgbColor(255, 165, 0), \
     RgbColor(255, 165, 0), \
     RgbColor(255, 165, 0) \
+}
+
+#define BRIGHT_GOLD_GRADIENT_COLORS { \
+    RgbColor(119, 89, 0), \
+    RgbColor(119, 89, 0), \
+    RgbColor(119, 89, 0), \
+    RgbColor(255, 230, 150), \
+    RgbColor(255, 180, 0), \
+    RgbColor(255, 180, 0), \
+    RgbColor(255, 180, 0), \
+    RgbColor(255, 180, 0), \
+}
+
+#define BRIGHT_RED_GRADIENT_COLORS { \
+    RgbColor(100, 0, 0), \
+    RgbColor(100, 0, 0), \
+    RgbColor(100, 0, 0), \
+    RgbColor(255, 180, 230), \
+    RgbColor(255, 0, 0), \
+    RgbColor(255, 0, 0), \
+    RgbColor(255, 0, 0), \
+    RgbColor(255, 0, 0), \
 }
 
 namespace {
@@ -103,6 +127,10 @@ namespace {
         }
     }
 
+    /**
+     * Helper function to draw the end game time with a shining trophy effect on the sides. 
+     * The trophies will have a diagonal shine animation that loops every 16 frames.
+     */
     void drawGameEndTime(PuzzleDisplay& display, RgbColor* textGradient, uint32_t timeMs, uint16_t glintFrame) {
         String gameTimeText = formatTimeSpan(timeMs);
 
@@ -115,6 +143,7 @@ namespace {
             drawShiningThropy(display, 8, 0, glintFrame);
             drawShiningThropy(display, TOTAL_WIDTH - 16, 0, glintFrame);
         } else {
+            // If glintFrame is negative, draw static trophies without shine
             display.drawImage(8, 0, ICON_TROPHY_8x8, 8, 8);
             display.drawImage(TOTAL_WIDTH - 16, 0, ICON_TROPHY_8x8, 8, 8);
         }
@@ -281,6 +310,36 @@ void MainDisplay::noGameUpdateLoop() {
     display.mirroredColorGradient(COLOR_RED, COLOR_YELLOW, redYelloMirrorGradient, ANIM_TEXT_FONT_HEIGHT);
 
     while (!localCancelToken.isCancelled()) {
+        // ----------------------
+        // -- GAME TITLE SCREEN --
+        // ----------------------
+        //showBrickMazeTitleScreen(localCancelToken);
+        //IF_CANCELLED(localCancelToken, break;)
+        audioPlayer.play(AUDIO_FILE_LEGO_SNAP);
+        delay(2000);
+
+        /*
+        // ----------------------
+        // -- EASY HIGH SCORES --
+        // ----------------------
+        showHighScoreList(GameLevel::EASY, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
+
+        // ------------------------
+        // -- MEDIUM HIGH SCORES --
+        // ------------------------
+        showHighScoreList(GameLevel::MEDIUM, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
+
+        // ----------------------
+        // -- HARD HIGH SCORES --
+        // ----------------------
+        showHighScoreList(GameLevel::HARD, localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
+
+        // -----------------
+        // -- HOW TO PLAY --
+        // -----------------
         textAnimation.showText("HOW TO PLAY:", redYelloMirrorGradient, TEXT_POSITION_CENTER);
         IF_CANCELLED(localCancelToken, break;)
         delayCancellable(1000, localCancelToken);
@@ -299,6 +358,7 @@ void MainDisplay::noGameUpdateLoop() {
         IF_CANCELLED(localCancelToken, break;)
         delayCancellable(2000, localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
+        */
     };
 
     cancelToken = nullptr; // Clear cancel token reference when exiting loop
@@ -739,10 +799,10 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
         frameCounter++;
 
         if (blinkOn && playerName.length() < 3) {
-            showHighScroreLine(endGameTimeSpanMs, playerName + currentChar, endGameTimeRank);
+            drawHighScroreLine(endGameTimeSpanMs, playerName + currentChar, endGameTimeRank);
         }
         else {
-            showHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank); 
+            drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank); 
         }
         display.show();
 
@@ -763,7 +823,7 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
     cancelToken = nullptr;
 }
 
-void MainDisplay::showHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank) {    
+void MainDisplay::drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank) {    
     RgbColor neonGradient[ANIM_TEXT_FONT_HEIGHT] = NEON_GRADIENT_COLORS;
     RgbColor goldGradient[ANIM_TEXT_FONT_HEIGHT] = GOLD_GRADIENT_COLORS;
     
@@ -772,4 +832,76 @@ void MainDisplay::showHighScroreLine(uint32_t timeSpanMs, String name, uint8_t r
     display.drawRightString(0, timeText, goldGradient, FONT_6x8, true);
     display.drawString(0,0, String(rank + 1) + ".", goldGradient, FONT_6x8, true);
     display.drawString(15, 0, name, neonGradient, FONT_6x8, true);
+}
+
+void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
+    RgbColor _buffer1[TOTAL_LEDS];
+    RgbColor _buffer2[TOTAL_LEDS];
+
+    // Capture current display state in buffer1 to use as starting point for the transition animation
+    display.copyCanvasTo(_buffer1);
+
+    // Draw high score level title on the display and copy it to buffer2
+    display.clear();
+    String title = String("TOP ")  + gameLevelToString(level);
+    RgbColor skyBlueGradient[ANIM_TEXT_FONT_HEIGHT] = SKY_BLUE_GRADIENT_COLORS;
+    display.drawCenteredString(0, title, skyBlueGradient, FONT_6x8);
+    display.copyCanvasTo(_buffer2);
+    IF_CANCELLED(cancelToken, return;)
+
+    // Animate transition from previous screen to the high score screen with a wipe transtion
+    imageTransitionAnimation.horizontalWipeTransition(_buffer1, _buffer2, COLOR_CYAN, 2, 800, 30, cancelToken);
+    IF_CANCELLED(cancelToken, return;)
+    delayCancellable(2000, cancelToken, 100);
+    IF_CANCELLED(cancelToken, return;)
+
+    // Copy buffer2 back to buffer1 to use it as the new base for drawing the high score list
+    memcpy(_buffer1, _buffer2, sizeof(_buffer1));
+
+    // Draw high score entries with a slight delay between each to create a staggered reveal effect
+    HighScore::Score score;
+    for (uint8_t i = 0; i < highScore.SCORES_PER_LEVEL; i++) {
+        // Draw the new score line and save it to buffer2, then animate a transition between buffer1 and buffer2 to create 
+        // vertical page scroll effect for each new score line.
+        highScore.read(level, i, score);
+        display.clear();
+        drawHighScroreLine(score.timeMs, score.name, i);
+        display.copyCanvasTo(_buffer2);
+
+        imageTransitionAnimation.verticalPageScrollTransition(_buffer1, _buffer2, 300, 30, cancelToken);
+        IF_CANCELLED(cancelToken, return;)
+
+        // Copy the current state of the display with the newly drawn score back to buffer1 for the next transition
+        memcpy(_buffer1, _buffer2, sizeof(_buffer1));
+        delayCancellable(1500, cancelToken, 100);
+    }
+
+    // Scroll out current content to leave a blank screen for the next animation
+    display.copyCanvasTo(_buffer1);
+    imageTransitionAnimation.verticalPageScrollOutTransition(_buffer1, 300, 30, cancelToken);
+    IF_CANCELLED(cancelToken, break;)
+    delayCancellable(1500, cancelToken, 100);
+}
+
+void MainDisplay::showBrickMazeTitleScreen(CancelToken& cancelToken) {
+    RgbColor goldGradient[ANIM_TEXT_FONT_HEIGHT] = BRIGHT_GOLD_GRADIENT_COLORS;
+    RgbColor redGradient[ANIM_TEXT_FONT_HEIGHT] = BRIGHT_RED_GRADIENT_COLORS;
+    FallingCharsAnimation fallingAnimation(display, audioPlayer);
+    fallingAnimation.setBounceAudioClip(AUDIO_FILE_LEGO_SNAP);
+
+    // Get words widths to center them together on the display
+    display.clear();
+    uint16_t brickW = display.getStringWidth("BRICK", FONT_6x8);
+    uint16_t mazeW = display.getStringWidth("MAZE", FONT_6x8);
+    uint16_t totalTextWidth = brickW + 6 + mazeW;
+
+    // Animate the fist word: BRICK
+    uint16_t startX = (display.getWidth() - totalTextWidth) / 2;
+    fallingAnimation.InAnimation(startX, "BRICK", redGradient, 600, cancelToken);
+
+    // Animate the second word: MAZE
+    startX += brickW + 6; // 6 pixels of spacing between the two words
+    fallingAnimation.InAnimation(startX, "MAZE", goldGradient, 600, cancelToken);
+
+    delayCancellable(1500, cancelToken, 100);
 }

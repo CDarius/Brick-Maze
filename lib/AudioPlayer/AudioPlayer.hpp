@@ -15,6 +15,8 @@
 #define AUDIO_FILE_BADING           "/bading.wav"
 #define AUDIO_FILE_SYSTEM_READY     "/unit-ready.wav"
 #define AUDIO_FILE_NEW_HIGHSCORE    "/new-high-score.wav"
+#define AUDIO_FILE_LEGO_SNAP        "/lego-snap.wav"
+#define AUDIO_FILE_BRICK_MAZE       "/brick-maze.wav"
 
 class AudioPlayer {
     private:

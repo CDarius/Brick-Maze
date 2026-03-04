@@ -227,7 +227,7 @@ public:
      * @param use_std_width If true, use the font's standard width for spacing; if false, use the actual character width
      * @return width of character drawn + spacing
      */    
-    uint8_t drawChar(int16_t x, int16_t y, unsigned char c, RgbColor color[], uint8_t font, bool use_std_width = false);
+    uint8_t drawChar(int16_t x, int16_t y, const unsigned char c, const RgbColor color[], uint8_t font, bool use_std_width = false);
 
     /**
      * Draw a String

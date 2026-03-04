@@ -10,9 +10,8 @@ void CancelToken::cancel() {
     cancelled = true;
 }
 
-void delayCancellable(unsigned long delayMs, CancelToken& token) {
+void delayCancellable(unsigned long delayMs, CancelToken& token, unsigned long pollIntervalMs) {
     unsigned long startTime = millis();
-    const unsigned long POLL_INTERVAL_MS = 10; // Check cancel token every 10ms
     
     while (!token.isCancelled()) {
         unsigned long elapsedTime = millis() - startTime;
@@ -22,7 +21,7 @@ void delayCancellable(unsigned long delayMs, CancelToken& token) {
         
         // Calculate remaining time and delay interval
         unsigned long remainingTime = delayMs - elapsedTime;
-        unsigned long sleepDuration = (remainingTime < POLL_INTERVAL_MS) ? remainingTime : POLL_INTERVAL_MS;
+        unsigned long sleepDuration = (remainingTime < pollIntervalMs) ? remainingTime : pollIntervalMs;
         delay(sleepDuration);
     }
 }

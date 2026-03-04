@@ -25,4 +25,4 @@ public:
     void cancel();
 };
 
-void delayCancellable(unsigned long delayMs, CancelToken& token);
+void delayCancellable(unsigned long delayMs, CancelToken& token, unsigned long pollIntervalMs = 10);

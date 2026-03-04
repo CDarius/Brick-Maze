@@ -144,7 +144,7 @@ void PuzzleDisplay::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, Rgb
     }
 }
 
-uint8_t PuzzleDisplay::drawChar(int16_t x, int16_t y, unsigned char c, RgbColor color, uint8_t font, bool use_std_width) {
+uint8_t PuzzleDisplay::drawChar(int16_t x, int16_t y, const unsigned char c, const RgbColor color, uint8_t font, bool use_std_width) {
     const FontDefinition* fontDef = GET_FONT_DEFINITION(font);
     const uint8_t* fontData = GET_FONT_DATA(font);
     
@@ -181,7 +181,7 @@ uint8_t PuzzleDisplay::drawChar(int16_t x, int16_t y, unsigned char c, RgbColor 
     return charWidth + 1; // Character width + 1 pixel spacing
 }
 
-uint8_t PuzzleDisplay::drawChar(int16_t x, int16_t y, unsigned char c, RgbColor color[], uint8_t font, bool use_std_width) {
+uint8_t PuzzleDisplay::drawChar(int16_t x, int16_t y, unsigned char c, const RgbColor color[], uint8_t font, bool use_std_width) {
     const FontDefinition* fontDef = GET_FONT_DEFINITION(font);
     const uint8_t* fontData = GET_FONT_DATA(font);
     

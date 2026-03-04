@@ -33,8 +33,8 @@ Game game(xServo, yServo);
 AudioPlayer audioPlayer(1); // Use I2S port 1. Display uses I2S0 (ESP32) or LCD (ESP32-S3).
 
 PuzzleDisplay display(PUZZLE_DISPLAY_PIXEL_PIN);
-MainDisplay mainDisplay(audioPlayer, display);
 HighScore highScore;
+MainDisplay mainDisplay(audioPlayer, display, highScore);
 
 GameLevel nextGameLevel = GameLevel::EASY;
 
@@ -152,7 +152,7 @@ void setup() {
             mainDisplay.updateLoop();
         },
         "MainDisplayTask",  // Task name
-        8192,               // Stack size
+        12 * 1024,          // Stack size
         nullptr,            // Parameter
         1,                  // Priority
         nullptr,            // Task handle

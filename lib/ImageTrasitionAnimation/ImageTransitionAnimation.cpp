@@ -1,5 +1,38 @@
 #include "ImageTransitionAnimation.hpp"
 
+void ImageTransitionAnimation::horizontalWipeTransition(const RgbColor* fromImage, const RgbColor* toImage, RgbColor lineColor, uint8_t lineWidth, uint16_t durationMs, uint8_t fps, CancelToken& cancelToken) {
+    uint16_t width = display.getWidth();
+    uint16_t height = display.getHeight();
+    uint16_t animWidth = width + lineWidth; // Total width to animate including the line width
+
+    // Calculate the total animations steps based on fps and duration
+    uint16_t totalFrames = (durationMs * fps) / 1000;
+    uint16_t delayPerFrame = durationMs / totalFrames;
+    
+    // Start the transition by copying the "fromImage" to the display
+    display.copyCanvasFrom(fromImage);
+
+    for (uint16_t frame = 1; frame <= totalFrames; frame++) {
+        if (cancelToken.isCancelled()) {
+            return; // Exit the transition if cancelled
+        }
+
+        // Draw the transition line
+        uint16_t col = frame * animWidth / totalFrames; // Calculate the current column based on the frame
+        for (uint8_t lw = 0; lw < lineWidth; lw++) {
+            int16_t lineCol = col - lw;
+            display.drawLine(lineCol, 0, lineCol, height - 1, lineColor);
+        }
+
+        // Copy the current column from the "toImage" to the display canvas
+        uint16_t imageCol = col - lineWidth;
+        display.copyCanvasFrom(toImage, 0, 0, imageCol, height, 0, 0);
+
+        display.show();
+        delay(delayPerFrame);
+    }
+}
+
 void ImageTransitionAnimation::horizontalCenterTransition(const RgbColor* fromImage, const RgbColor* toImage, RgbColor lineColor, uint16_t durationMs, CancelToken& cancelToken) {
     int16_t hh = display.getHeight() / 2;
     uint16_t delayMs = durationMs / (hh + 1); // +1 beacuse the center line must go off screen to complete the transition;
@@ -64,5 +97,43 @@ void ImageTransitionAnimation::horizontalCenterInverseTransition(const RgbColor*
 
         display.show();
         delay(delayMs);
+    }
+}
+
+void ImageTransitionAnimation::verticalPageScrollTransition(const RgbColor* fromImage, const RgbColor* toImage, uint16_t durationMs, uint8_t fps, CancelToken& cancelToken) {
+    int16_t width = display.getWidth();
+    int16_t height = display.getHeight();
+    uint16_t scrollHeight = height + 1; // Total height to scroll including the extra line between the two images
+
+    // Calculate the total animations steps based on fps and duration
+    uint16_t totalFrames = (durationMs * fps) / 1000;
+    uint16_t delayPerFrame = durationMs / totalFrames;
+
+    for (uint16_t frame = 1; frame <= totalFrames; frame++) {
+        if (cancelToken.isCancelled()) {
+            return; // Exit the transition if cancelled
+        }
+
+        // Calculate the current scroll position using an EaseInOut easing function for smooth acceleration and deceleration
+        float t = (float)frame / (float)totalFrames; // Normalize to 0-1
+        float easedT = t < 0.5 ? 2 * t * t : (-1 + (4 - 2 * t) * t); // EaseInOut quadratic easing
+        int16_t scrollDelta = (int16_t)(easedT * scrollHeight); // Calculate the current scroll delta Y based on the eased progress
+
+        // Draw the "fromImage" up by copying only the visible portion
+        display.copyCanvasFrom(fromImage, 0, scrollDelta, width, height - scrollDelta, 0, 0);
+
+        // Draw the empty line between the two images during the transition
+        int16_t emptyLineY = height - scrollDelta;
+        display.drawLine(0, emptyLineY, width - 1, emptyLineY, COLOR_BLACK);
+
+        // Draw the "toImage" up by copying only the visible portion
+        int16_t toImageY = height + 1 - scrollDelta;
+        int16_t toImageH = height - toImageY;
+        if (toImageH > 0) {
+            display.copyCanvasFrom(toImage, 0, 0, width, toImageH, 0, toImageY);
+        }
+
+        display.show();
+        delay(delayPerFrame);
     }
 }

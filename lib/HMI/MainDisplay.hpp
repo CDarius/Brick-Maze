@@ -6,12 +6,13 @@
 #include <TextAnimation.hpp>
 #include <ImageTransitionAnimation.hpp>
 #include <GameLevel.hpp>
+#include <HighScore.hpp>
 #include <CancelToken.hpp>
 
 class MainDisplay {
 public:
-    MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display)
-        : audioPlayer(audioPlayer), display(display), textAnimation(display), imageTransitionAnimation(display) {
+    MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display, HighScore& highScore)
+        : audioPlayer(audioPlayer), display(display), highScore(highScore),textAnimation(display), imageTransitionAnimation(display) {
         setNoGameMode();
     }
 
@@ -40,6 +41,7 @@ public:
 private:
     AudioPlayer& audioPlayer;
     PuzzleDisplay& display;
+    HighScore& highScore;
     TextAnimation textAnimation;
     ImageTransitionAnimation imageTransitionAnimation;
 
@@ -73,5 +75,7 @@ private:
     void endGameTimeUpdateLoop();
     void endGameHighScoreUpdateLoop();
 
-    void showHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank);
+    void drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank);
+    void showHighScoreList(GameLevel level, CancelToken& cancelToken);
+    void showBrickMazeTitleScreen(CancelToken& cancelToken);
 };

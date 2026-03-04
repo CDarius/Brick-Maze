@@ -15,3 +15,7 @@ constexpr bool isValidGameLevel(GameLevel level) {
 constexpr uint8_t gameLevelToIndex(GameLevel level) {
     return level == GameLevel::EASY ? 0 : (level == GameLevel::MEDIUM ? 1 : 2);
 }
+
+constexpr const char* gameLevelToString(GameLevel level) {
+    return level == GameLevel::EASY ? "EASY" : (level == GameLevel::MEDIUM ? "MEDIUM" : "HARD");
+}
