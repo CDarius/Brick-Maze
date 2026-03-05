@@ -151,7 +151,7 @@ namespace {
     }    
 }
 
-void MainDisplay::setNoGameMode() {
+void MainDisplay::setNoGameMode(bool playTitleAudio) {
     uint8_t newMode = MAIN_DISPLAY_MODE_NO_GAME;
     if (newMode == currentMode) 
         return; // No change
@@ -159,6 +159,11 @@ void MainDisplay::setNoGameMode() {
     currentMode = newMode;
     modeDone = false;
 
+    if (playTitleAudio) {
+        nextTitleAudioTimeMs = 0; // Play the title audio at the first iteration
+    } else {
+        nextTitleAudioTimeMs = millis() + TITLE_AUDIO_INTERVAL_MS; // Schedule next title audio in 10 minutes
+    }
     // Cancel current ongoing mode loop
     if (cancelToken != nullptr) {
         cancelToken->cancel();
@@ -306,8 +311,6 @@ void MainDisplay::noGameUpdateLoop() {
     CancelToken localCancelToken;
     cancelToken = &localCancelToken;
 
-    unsigned long nextTitleAudioTimeMs = 0;
-
     while (!localCancelToken.isCancelled()) {
         // ----------------------
         // -- GAME TITLE SCREEN --
@@ -316,7 +319,7 @@ void MainDisplay::noGameUpdateLoop() {
         bool playTitleAudio = false;
         if (now >= nextTitleAudioTimeMs) {
             playTitleAudio = true;
-            nextTitleAudioTimeMs = now + 10 * 60 * 1000; // Play title audio every 10 minutes
+            nextTitleAudioTimeMs = now + TITLE_AUDIO_INTERVAL_MS;
         }
         showBrickMazeTitleScreen(localCancelToken, playTitleAudio);
         IF_CANCELLED(localCancelToken, break;)

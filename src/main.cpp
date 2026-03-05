@@ -156,7 +156,7 @@ void setup() {
         nullptr,            // Parameter
         1,                  // Priority
         nullptr,            // Task handle
-        0                   // Core 0
+        1                   // Core 1
     );
 
     // Create a task to run controller update loop on core 1 with high priority to ensure responsive control
@@ -220,7 +220,7 @@ void setup() {
 
     audioPlayer.play(AUDIO_FILE_SYSTEM_READY);
     delay(2000);
-    mainDisplay.setNoGameMode();
+    mainDisplay.setNoGameMode(true);
     Serial.println("Initialization complete. Entering main loop.");
 }
 

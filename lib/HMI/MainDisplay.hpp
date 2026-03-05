@@ -9,6 +9,8 @@
 #include <HighScore.hpp>
 #include <CancelToken.hpp>
 
+constexpr unsigned long TITLE_AUDIO_INTERVAL_MS = 10 * 60 * 1000;
+
 class MainDisplay {
 public:
     MainDisplay(AudioPlayer& audioPlayer, PuzzleDisplay& display, HighScore& highScore)
@@ -16,7 +18,7 @@ public:
         setNoGameMode();
     }
 
-    void setNoGameMode();
+    void setNoGameMode(bool playTitleAudio = false);
     void setCountdownMode(unsigned long endTimeMs, uint32_t durationMs, uint32_t criticalThresholdMs);
     void setGameOverMode();
     void setGameWinMode();
@@ -48,6 +50,8 @@ private:
     uint8_t currentMode;
     bool modeDone;
     CancelToken* cancelToken;
+
+    unsigned long nextTitleAudioTimeMs;
 
     // Countdown mode properties
     unsigned long countdownEndTimeMs;
