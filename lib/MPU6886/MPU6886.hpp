@@ -28,6 +28,7 @@ public:
     bool begin(AccelScale accelScale = AccelScale::RANGE_2G);
     uint8_t whoAmI(void);
     bool setAccelScale(AccelScale accelScale);
+    float getAccelGRange() const;
     bool setAccelFilter(AccelFilter filter);
     bool setSampleRateDivider(uint8_t divider);
     AccelScale getAccelScale() const;

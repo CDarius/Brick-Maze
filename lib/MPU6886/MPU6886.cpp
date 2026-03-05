@@ -103,6 +103,21 @@ bool MPU6886::setAccelScale(AccelScale accelScale) {
     return true;
 }
 
+float MPU6886::getAccelGRange() const {
+    switch (currentAccelScale) {
+        case AccelScale::RANGE_2G:
+            return 2.0f;
+        case AccelScale::RANGE_4G:
+            return 4.0f;
+        case AccelScale::RANGE_8G:
+            return 8.0f;
+        case AccelScale::RANGE_16G:
+            return 16.0f;
+        default:
+            return 2.0f;
+    }
+}
+
 bool MPU6886::setAccelFilter(AccelFilter filter) {
     if (!writeByte(MPU6886_ACCEL_CONFIG2, static_cast<uint8_t>(filter))) {
         return false;
