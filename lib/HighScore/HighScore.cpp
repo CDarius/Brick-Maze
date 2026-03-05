@@ -1,4 +1,5 @@
 #include "HighScore.hpp"
+#include "Config.hpp"
 
 bool HighScore::begin() {
     if (!preferences.begin(NVS_NAMESPACE, false)) {
@@ -90,39 +91,41 @@ bool HighScore::overwriteWithDefaultScores() {
 }
 
 void HighScore::loadHardcodedScores() {
-    static constexpr Score defaultScores[GAME_LEVEL_COUNT][SCORES_PER_LEVEL] = {
+    auto defaultConfig = getDefaultGameConfig();
+
+    Score defaultScores[GAME_LEVEL_COUNT][SCORES_PER_LEVEL] = {
         {
-            {{'B', 'M', 'Z', '\0'}, 45000},
-            {{'B', 'M', 'Z', '\0'}, 45000},
-            {{'B', 'M', 'Z', '\0'}, 45000},
-            {{'B', 'M', 'Z', '\0'}, 45000},
-            {{'B', 'M', 'Z', '\0'}, 45000},
-            {{'B', 'M', 'Z', '\0'}, 45000},
-            {{'B', 'M', 'Z', '\0'}, 45000},
-            {{'B', 'M', 'Z', '\0'}, 45000},
-            {{'B', 'M', 'Z', '\0'}, 45000},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.easyTimeLimitMs},
         },
         {
-            {{'B', 'M', 'Z', '\0'}, 30000},
-            {{'B', 'M', 'Z', '\0'}, 30000},
-            {{'B', 'M', 'Z', '\0'}, 30000},
-            {{'B', 'M', 'Z', '\0'}, 30000},
-            {{'B', 'M', 'Z', '\0'}, 30000},
-            {{'B', 'M', 'Z', '\0'}, 30000},
-            {{'B', 'M', 'Z', '\0'}, 30000},
-            {{'B', 'M', 'Z', '\0'}, 30000},
-            {{'B', 'M', 'Z', '\0'}, 30000},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.mediumTimeLimitMs},
         },
         {
-            {{'B', 'M', 'Z', '\0'}, 15000},
-            {{'B', 'M', 'Z', '\0'}, 15000},
-            {{'B', 'M', 'Z', '\0'}, 15000},
-            {{'B', 'M', 'Z', '\0'}, 15000},
-            {{'B', 'M', 'Z', '\0'}, 15000},
-            {{'B', 'M', 'Z', '\0'}, 15000},
-            {{'B', 'M', 'Z', '\0'}, 15000},
-            {{'B', 'M', 'Z', '\0'}, 15000},
-            {{'B', 'M', 'Z', '\0'}, 15000},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
+            {{'B', 'M', 'Z', '\0'}, defaultConfig.hardTimeLimitMs},
         },
     };
 
