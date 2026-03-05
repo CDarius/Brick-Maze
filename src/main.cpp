@@ -269,6 +269,7 @@ void beforeGame() {
     Button startButton;
 
     mainDisplay.setNoGameMode();
+    controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::NO_GAME);
     displayNextGameLevel();
 
     while (true) {
@@ -302,6 +303,7 @@ void startGame() {
     uint16_t gameTimeLimitMs = game.currentGameTimeLimitMs();
     uint16_t criticalThresholdMs = nextGameLevel == GameLevel::EASY ? 10000 : 5000;
     mainDisplay.setCountdownMode(gameEndTimeMs, gameTimeLimitMs, criticalThresholdMs);
+    controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::IN_GAME);
 }
 
 void gameEnd() {
@@ -316,6 +318,8 @@ void gameEnd() {
         // Nothing to show on display, just return to before game state
         return;
     }
+
+    controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::END_GAME);
 
     // Update the display to reflect the game result
     if (lastGameResult == GameResult::WON) {
@@ -334,6 +338,7 @@ void gameEnd() {
         int8_t rank = highScore.getHighScoreRank(lastGameLevel, lastGameCompletionTimeMs);
         if (rank >= 0) {
             // Enter player name and show high score celebration animation on the display
+            controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::WRITE_PLAYER_NAME);
             mainDisplay.setEndGameHighScoreMode(lastGameCompletionTimeMs, lastGameLevel, rank);
             while (!mainDisplay.isModeDone()) {        
                 delay(100);
@@ -345,6 +350,9 @@ void gameEnd() {
                 newScore.name[i] = playerName[i];
             }
             highScore.write(lastGameLevel, newScore);
+
+            // Small delay to show the new high score on the high score table before returning to idle state
+            delay(2000);
         } else {
             // If not an high score just show the completion time without entering a name
             mainDisplay.setEndGameTimeMode(lastGameCompletionTimeMs);
@@ -353,6 +361,7 @@ void gameEnd() {
             }
 
             // Small pause to let the player see their completion time before returning to idle state
+            controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::END_GAME);
             delay(2000);
         }
     } else if (lastGameResult == GameResult::LOST) {

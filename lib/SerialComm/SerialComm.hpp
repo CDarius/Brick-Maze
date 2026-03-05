@@ -10,6 +10,13 @@
  */
 class SerialComm {
     public:
+        enum class ControllerHMIMode : uint8_t {
+            NO_GAME = 0,
+            IN_GAME = 1,
+            END_GAME = 2,
+            WRITE_PLAYER_NAME = 3,            
+        };
+
         /**
          * Constructor for SerialComm.
          * @param serial Reference to the HardwareSerial object to use for communication.
@@ -35,6 +42,15 @@ class SerialComm {
         void sendControllerEnabled(bool enabled) {
             // Format the string as "ENAB_CTRL:<enabled value>\n"
             serial.printf("ENAB_CTRL:%d\n", enabled);
+        }
+
+        /**
+         * Sends the current HMI mode to the host.
+         * @param mode Desired HMI mode.
+         */
+        void sendControllerHMIMode(ControllerHMIMode mode) {
+            // Format the string as "SET_HMI_MODE:<mode value>\n"
+            serial.printf("SET_HMI_MODE:%d\n", static_cast<uint8_t>(mode));
         }
 
         /**
