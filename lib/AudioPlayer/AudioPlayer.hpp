@@ -17,6 +17,8 @@
 #define AUDIO_FILE_NEW_HIGHSCORE    "/new-high-score.wav"
 #define AUDIO_FILE_LEGO_SNAP        "/lego-snap.wav"
 #define AUDIO_FILE_BRICK_MAZE       "/brick-maze.wav"
+#define AUDIO_FILE_START_BEEP_SHORT "/start-beep-short.wav"
+#define AUDIO_FILE_START_BEEP_LONG  "/start-beep-long.wav"
 
 class AudioPlayer {
     private:

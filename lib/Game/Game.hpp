@@ -16,6 +16,7 @@ enum class GameResult {
 
 enum class GameStatus {
     NOT_RUNNING,
+    PREPARING,
     RUNNING,
     DROPPING_BALL
 };
@@ -40,6 +41,12 @@ class Game {
          * @param config The configuration parameters for the game.
          */
         void begin(const GameConfig config);
+        
+        /**
+         * Prepares the game by lowering the table slowly in preparation
+         * for the kick back at the start of the game. This should be called before start()
+         */
+        void prepareGame();
 
         /**
          * Starts the game at the specified difficulty level. The game will run until the time limit

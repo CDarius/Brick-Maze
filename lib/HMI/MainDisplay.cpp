@@ -1,6 +1,7 @@
 #include "MainDisplay.hpp"
 #include "FallingChars.hpp"
 #include "DemolitionCharsAnimation.hpp"
+#include "CenterGrowAndFadeAnimation.hpp"
 #include "AudioPlayer.hpp"
 
 #define MAIN_DISPLAY_MAX_FPS    20
@@ -13,6 +14,7 @@
 #define MAIN_DISPLAY_MODE_TABLE_LEVELING 5
 #define MAIN_DISPLAY_MODE_END_GAME_TIME 6
 #define MAIN_DISPLAY_MODE_END_GAME_HIGH_SCORE 7
+#define MAIN_DISPLAY_MODE_READY_SET_GO 8
 
 #define SKY_BLUE_GRADIENT_COLORS { \
     RgbColor(0, 50, 150), \
@@ -170,6 +172,20 @@ void MainDisplay::setNoGameMode(bool playTitleAudio) {
     }
 }
 
+void MainDisplay::setReadySetGoMode() {
+    uint8_t newMode = MAIN_DISPLAY_MODE_READY_SET_GO;
+    if (newMode == currentMode)
+        return; // No change
+
+    currentMode = newMode;
+    modeDone = false;
+
+    // Cancel current ongoing mode loop
+    if (cancelToken != nullptr) {
+        cancelToken->cancel();
+    }
+}
+
 void MainDisplay::setCountdownMode(unsigned long endTimeMs, uint32_t durationMs, uint32_t criticalThresholdMs) {
     uint8_t newMode = MAIN_DISPLAY_MODE_COUNTDOWN;
     if (newMode == currentMode) 
@@ -284,6 +300,10 @@ void MainDisplay::updateLoop() {
                 countdownUpdateLoop();
                 break;
 
+            case MAIN_DISPLAY_MODE_READY_SET_GO:
+                readySetGoUpdateLoop();
+                break;
+
             case MAIN_DISPLAY_MODE_GAME_OVER:
                 gameOverUpdateLoop();
                 break;
@@ -311,6 +331,7 @@ void MainDisplay::noGameUpdateLoop() {
     CancelToken localCancelToken;
     cancelToken = &localCancelToken;
 
+    modeDone = true; // This mode doesn't have a defined end, so we can consider it done immediately    
     while (!localCancelToken.isCancelled()) {
         // ----------------------
         // -- GAME TITLE SCREEN --
@@ -342,6 +363,23 @@ void MainDisplay::noGameUpdateLoop() {
         showHighScoreList(GameLevel::HARD, localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
 
+    }
+
+    cancelToken = nullptr; // Clear cancel token reference when exiting loop
+}
+
+void MainDisplay::readySetGoUpdateLoop() {
+    CancelToken localCancelToken;
+    cancelToken = &localCancelToken;
+
+    showReadySetGoAnimation(localCancelToken);
+
+    if (!localCancelToken.isCancelled()) {
+        modeDone = true;
+    }
+
+    while (!localCancelToken.isCancelled()) {
+        delay(100); // Wait for mode change
     }
 
     cancelToken = nullptr; // Clear cancel token reference when exiting loop
@@ -945,4 +983,54 @@ void MainDisplay::showBrickMazeTitleScreen(CancelToken& cancelToken, bool playTi
 
     // Small pause after the demolition animation before starting the next screen to give a moment of visual rest
     delayCancellable(1500, cancelToken, 100);
+}
+
+void MainDisplay::showReadySetGoAnimation(CancelToken& cancelToken) {
+    CenterGrowAndFadeAnimation centerGrowAndFade(display, 150, 700, 200, 33);
+
+    RgbColor redGradient[ANIM_TEXT_FONT_HEIGHT];
+    RgbColor ambraGradient[ANIM_TEXT_FONT_HEIGHT];
+    RgbColor greenGradient[ANIM_TEXT_FONT_HEIGHT];
+
+    display.linearColorGradient(RgbColor(255, 30, 30), RgbColor(100, 0, 0), redGradient, ANIM_TEXT_FONT_HEIGHT);
+    display.linearColorGradient(RgbColor(255, 200, 0), RgbColor(150, 50, 0), ambraGradient, ANIM_TEXT_FONT_HEIGHT);
+    display.linearColorGradient(RgbColor(150, 255, 0), RgbColor(0, 80, 0), greenGradient, ANIM_TEXT_FONT_HEIGHT);
+
+    // Show "READY"
+    audioPlayer.play(AUDIO_FILE_START_BEEP_SHORT);
+    centerGrowAndFade.animate("READY", RgbColor(255, 30, 30), redGradient, cancelToken);
+    audioPlayer.setVolume(0); // Hack to avoid the click sound when the audio end
+    delay(50);
+    audioPlayer.setVolume(21);
+    IF_CANCELLED(cancelToken, return;)
+
+    // Show "SET"
+    audioPlayer.play(AUDIO_FILE_START_BEEP_SHORT);
+    centerGrowAndFade.animate("SET", RgbColor(255, 200, 0), ambraGradient, cancelToken);
+    audioPlayer.setVolume(0); // Hack to avoid the click sound when the audio end
+    delay(50);
+    audioPlayer.setVolume(21);
+    IF_CANCELLED(cancelToken, return;)
+
+    // Show "GO!"
+    audioPlayer.play(AUDIO_FILE_START_BEEP_LONG);
+    for (uint8_t i = 0; i < 6; i++) {
+        IF_CANCELLED(cancelToken, {
+            audioPlayer.stop();
+            audioPlayer.setVolume(21);
+            return;
+        })
+
+        display.clear();
+        display.drawCenteredString(0, "GO!", greenGradient, FONT_6x8, true);
+        display.show();
+        delay(100);
+
+        display.clear();
+        display.show();
+        delay(60);
+    }
+    audioPlayer.setVolume(0); // Hack to avoid the click sound when the audio end
+    delay(50);
+    audioPlayer.setVolume(21);
 }

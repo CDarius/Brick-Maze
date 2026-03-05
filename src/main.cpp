@@ -98,13 +98,13 @@ void setup() {
     }
 
     // Initialize the high score manager
-    if (!highScore.begin()) {
+    if (!highScore.begin(getDefaultGameConfig())) {
         showInitFailed("HScore Fail", "Failed to initialize high score manager");
     }
     // Overwrite high scores with default values if both stop and start buttons are pressed during startup as a way 
     // to reset high scores without needing to reflash the device
     if (isStopButtonPressed() && isStartButtonPressed()) {
-        highScore.overwriteWithDefaultScores();
+        highScore.overwriteWithDefaultScores(getDefaultGameConfig());
     }
 
     // Initialize SPIFFS
@@ -202,6 +202,7 @@ void setup() {
             while (true) {
                 if (game.isRunning() && isStopButtonPressed()) {
                     game.stop();
+                    mainDisplay.setNoGameMode();
                 }
                 delay(100);
             }
@@ -297,6 +298,12 @@ void beforeGame() {
 }
 
 void startGame() {
+    game.prepareGame();
+    mainDisplay.setReadySetGoMode();
+    while (!mainDisplay.isModeDone()) {
+        delay(50);
+    }
+
     game.start(nextGameLevel);
 
     unsigned long gameEndTimeMs = game.currentGameEndTimeMs();

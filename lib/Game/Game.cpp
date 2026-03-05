@@ -48,23 +48,41 @@ void Game::begin(const GameConfig config) {
     lastGameLevel = GameLevel::EASY;
 }
 
-void Game::start(GameLevel level) {
+void Game::prepareGame() {
     if (!isReadyToStart()) {
         return;
     }
 
+    status = GameStatus::PREPARING;
+    // Move servos to center position before starting the game
+    xServoRamp.setMaxRate(config.prepareGamePulseRate);
+    yServoRamp.setMaxRate(config.prepareGamePulseRate);
+    xServoRamp.setTarget(static_cast<int16_t>(xCenterPulseUs) + config.prepareGameXPulseus);
+    yServoRamp.setTarget(static_cast<int16_t>(yCenterPulseUs) + config.prepareGameYPulseus);
+}
+
+void Game::start(GameLevel level) {
+    if (status != GameStatus::PREPARING) {
+        return;
+    }
+
+    // Move the servos quickly in the opposite direction of the prepareGame to kick the ball away from the holder
+    xServoRamp.setMaxRate(config.maxServoPulseRate);
+    yServoRamp.setMaxRate(config.maxServoPulseRate);
+    xServoRamp.setTarget(static_cast<int16_t>(xCenterPulseUs) - config.prepareGameXPulseus);
+    yServoRamp.setTarget(static_cast<int16_t>(yCenterPulseUs) - config.prepareGameYPulseus);
+    delay(config.prepareKickBackDelayMs);
+    
+    // Let's the player control the servos after the kick back
     currentLevel = level;
     currentTimeLimitMs = getTimeLimitMs(level);
     startTimeMs = millis();
     status = GameStatus::RUNNING;
     resetBallDroppedFlag();
-
-    xServoRamp.setTarget(static_cast<int16_t>(xCenterPulseUs));
-    yServoRamp.setTarget(static_cast<int16_t>(yCenterPulseUs));
 }
 
 void Game::stop() {
-    if (status != GameStatus::RUNNING) {
+    if (status != GameStatus::RUNNING && status != GameStatus::PREPARING) {
         return;
     }
 
@@ -141,7 +159,7 @@ void Game::update(float controllerX, float controllerY) {
 }
 
 bool Game::isRunning() const {
-    return status == GameStatus::RUNNING;
+    return status == GameStatus::RUNNING || status == GameStatus::PREPARING;
 }
 
 bool Game::isReadyToStart() const {

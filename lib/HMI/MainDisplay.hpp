@@ -19,6 +19,7 @@ public:
     }
 
     void setNoGameMode(bool playTitleAudio = false);
+    void setReadySetGoMode();
     void setCountdownMode(unsigned long endTimeMs, uint32_t durationMs, uint32_t criticalThresholdMs);
     void setGameOverMode();
     void setGameWinMode();
@@ -72,6 +73,7 @@ private:
 
     // Modes update loops
     void noGameUpdateLoop();
+    void readySetGoUpdateLoop();
     void countdownUpdateLoop();
     void gameOverUpdateLoop();
     void gameWinUpdateLoop();
@@ -82,4 +84,5 @@ private:
     void drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank);
     void showHighScoreList(GameLevel level, CancelToken& cancelToken);
     void showBrickMazeTitleScreen(CancelToken& cancelToken, bool playTitleAudio);
+    void showReadySetGoAnimation(CancelToken& cancelToken);
 };
