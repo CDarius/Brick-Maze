@@ -185,6 +185,13 @@ void setup() {
                 else {
                     mainDisplay.updateControllerStatus(0, 0, false);
                 }
+
+                if (buttonPressed && game.isReadyToStart()) {
+                    // If the button is pressed and the game is ready to start means that someoune
+                    // is playing with the controller without asking for it, so we can set display
+                    // the DON'T TOUCH message to warn
+                    mainDisplay.setDontTouchMode();
+                }
                 delay(10);
             }
         },

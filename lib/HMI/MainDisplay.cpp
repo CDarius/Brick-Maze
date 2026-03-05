@@ -15,6 +15,7 @@
 #define MAIN_DISPLAY_MODE_END_GAME_TIME 6
 #define MAIN_DISPLAY_MODE_END_GAME_HIGH_SCORE 7
 #define MAIN_DISPLAY_MODE_READY_SET_GO 8
+#define MAIN_DISPLAY_MODE_DONT_TOUCH 9
 
 #define SKY_BLUE_GRADIENT_COLORS { \
     RgbColor(0, 50, 150), \
@@ -172,6 +173,20 @@ void MainDisplay::setNoGameMode(bool playTitleAudio) {
     }
 }
 
+void MainDisplay::setDontTouchMode() {
+    uint8_t newMode = MAIN_DISPLAY_MODE_DONT_TOUCH;
+    if (newMode == currentMode)
+        return; // No change
+
+    currentMode = newMode;
+    modeDone = false;
+
+    // Cancel current ongoing mode loop
+    if (cancelToken != nullptr) {
+        cancelToken->cancel();
+    }
+}
+
 void MainDisplay::setReadySetGoMode() {
     uint8_t newMode = MAIN_DISPLAY_MODE_READY_SET_GO;
     if (newMode == currentMode)
@@ -304,6 +319,10 @@ void MainDisplay::updateLoop() {
                 readySetGoUpdateLoop();
                 break;
 
+            case MAIN_DISPLAY_MODE_DONT_TOUCH:
+                dontTouchUpdateLoop();
+                break;
+
             case MAIN_DISPLAY_MODE_GAME_OVER:
                 gameOverUpdateLoop();
                 break;
@@ -380,6 +399,36 @@ void MainDisplay::readySetGoUpdateLoop() {
 
     while (!localCancelToken.isCancelled()) {
         delay(100); // Wait for mode change
+    }
+
+    cancelToken = nullptr; // Clear cancel token reference when exiting loop
+}
+
+void MainDisplay::dontTouchUpdateLoop() {
+    CancelToken localCancelToken;
+    cancelToken = &localCancelToken;
+
+    audioPlayer.play(AUDIO_FILE_DONT_TOUCH);
+
+    for (uint16_t i = 0; i < 14; i++) {
+        if (localCancelToken.isCancelled()) {
+            audioPlayer.stop();            
+            break;
+        }
+
+        display.clear();
+        display.drawCenteredString(0, "DON'T TOUCH", COLOR_RED, FONT_6x8);
+        display.show();
+        delay(100);
+
+        display.clear();
+        display.show();
+        delay(60);
+    }
+
+    if (!localCancelToken.isCancelled()) {
+        modeDone = true;
+        setNoGameMode(); // Return to no game mode without replaying title audio immediately
     }
 
     cancelToken = nullptr; // Clear cancel token reference when exiting loop

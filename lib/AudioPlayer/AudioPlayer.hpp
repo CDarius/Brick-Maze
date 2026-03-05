@@ -19,6 +19,7 @@
 #define AUDIO_FILE_BRICK_MAZE       "/brick-maze.wav"
 #define AUDIO_FILE_START_BEEP_SHORT "/start-beep-short.wav"
 #define AUDIO_FILE_START_BEEP_LONG  "/start-beep-long.wav"
+#define AUDIO_FILE_DONT_TOUCH       "/ask-before-touch.wav"
 
 class AudioPlayer {
     private:

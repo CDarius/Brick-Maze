@@ -19,6 +19,7 @@ public:
     }
 
     void setNoGameMode(bool playTitleAudio = false);
+    void setDontTouchMode();
     void setReadySetGoMode();
     void setCountdownMode(unsigned long endTimeMs, uint32_t durationMs, uint32_t criticalThresholdMs);
     void setGameOverMode();
@@ -73,6 +74,7 @@ private:
 
     // Modes update loops
     void noGameUpdateLoop();
+    void dontTouchUpdateLoop();
     void readySetGoUpdateLoop();
     void countdownUpdateLoop();
     void gameOverUpdateLoop();
