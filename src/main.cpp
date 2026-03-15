@@ -37,6 +37,7 @@ HighScore highScore;
 MainDisplay mainDisplay(audioPlayer, display, highScore);
 
 GameLevel nextGameLevel = GameLevel::EASY;
+bool waitingForGameToStart = false;
 
 void showInitFailed(const char* displayMessage, const char* serialMessage) {
     display.clear();
@@ -186,7 +187,7 @@ void setup() {
                     mainDisplay.updateControllerStatus(0, 0, false);
                 }
 
-                if (buttonPressed && game.isReadyToStart()) {
+                if (buttonPressed && waitingForGameToStart) {
                     // If the button is pressed and the game is ready to start means that someoune
                     // is playing with the controller without asking for it, so we can set display
                     // the DON'T TOUCH message to warn
@@ -237,7 +238,9 @@ void startGame();
 void gameEnd();
 
 void loop() {
+    waitingForGameToStart = true;
     beforeGame();
+    waitingForGameToStart = false;
     startGame();
     Serial.println("Game started. Waiting for it to end...");
 
