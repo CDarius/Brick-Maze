@@ -102,28 +102,6 @@ void HighScore::loadHardcodedScores(GameConfig config) {
             {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
             {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
         },
-        {
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.mediumTimeLimitMs},
-        },
-        {
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.hardTimeLimitMs},
-        },
     };
 
     memcpy(scores, defaultScores, sizeof(scores));

@@ -370,18 +370,6 @@ void MainDisplay::noGameUpdateLoop() {
         showHighScoreList(GameLevel::EASY, localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
 
-        // ------------------------
-        // -- MEDIUM HIGH SCORES --
-        // ------------------------
-        showHighScoreList(GameLevel::MEDIUM, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-
-        // ----------------------
-        // -- HARD HIGH SCORES --
-        // ----------------------
-        showHighScoreList(GameLevel::HARD, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-
     }
 
     cancelToken = nullptr; // Clear cancel token reference when exiting loop

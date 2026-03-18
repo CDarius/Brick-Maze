@@ -35,8 +35,25 @@ AudioPlayer audioPlayer(1); // Use I2S port 1. Display uses I2S0 (ESP32) or LCD 
 PuzzleDisplay display(PUZZLE_DISPLAY_PIXEL_PIN);
 HighScore highScore;
 MainDisplay mainDisplay(audioPlayer, display, highScore);
-
 GameLevel nextGameLevel = GameLevel::EASY;
+
+GameLevel selectNextGameLevel(GameLevel level) {
+    switch (level) {
+        case GameLevel::EASY:
+            return GameLevel::EASY;
+    }
+
+    return GameLevel::EASY;
+}
+
+uint16_t getCriticalThresholdMs(GameLevel level) {
+    switch (level) {
+        case GameLevel::EASY:
+            return 10000;
+    }
+
+    return 10000;
+}
 
 void showInitFailed(const char* displayMessage, const char* serialMessage) {
     display.clear();
@@ -262,10 +279,6 @@ void displayNextGameLevel() {
 
     if (nextGameLevel == GameLevel::EASY) {
         ledColor[2] = 0x00FF00; // Green for easy
-    } else if (nextGameLevel == GameLevel::MEDIUM) {
-        ledColor[1] = 0xFFFF00; // Yellow for medium
-    } else if (nextGameLevel == GameLevel::HARD) {
-        ledColor[0] = 0xFF0000; // Red for hard
     }
 
     for (int i = 0; i < 3; i++) {
@@ -285,17 +298,9 @@ void beforeGame() {
 
         if (startButton.wasSingleClicked()) {
             if (isStopButtonPressed()) {
-                // Toggle next game level
-                if (nextGameLevel == GameLevel::EASY) {
-                    nextGameLevel = GameLevel::MEDIUM;
-                } else if (nextGameLevel == GameLevel::MEDIUM) {
-                    nextGameLevel = GameLevel::HARD;
-                } else if (nextGameLevel == GameLevel::HARD) {
-                    nextGameLevel = GameLevel::EASY;
-                }
+                nextGameLevel = selectNextGameLevel(nextGameLevel);
                 displayNextGameLevel();
             } else {
-                // Start the game
                 break;
             }
         }
@@ -315,7 +320,7 @@ void startGame() {
 
     unsigned long gameEndTimeMs = game.currentGameEndTimeMs();
     uint16_t gameTimeLimitMs = game.currentGameTimeLimitMs();
-    uint16_t criticalThresholdMs = nextGameLevel == GameLevel::EASY ? 10000 : 5000;
+    uint16_t criticalThresholdMs = getCriticalThresholdMs(nextGameLevel);
     mainDisplay.setCountdownMode(gameEndTimeMs, gameTimeLimitMs, criticalThresholdMs);
     controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::IN_GAME);
 }
