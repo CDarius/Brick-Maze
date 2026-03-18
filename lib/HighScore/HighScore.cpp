@@ -5,25 +5,34 @@ bool HighScore::begin(GameConfig config) {
         return false;
     }
 
-    const size_t expectedSize = sizeof(scores);
-    const size_t storedSize = preferences.getBytesLength(NVS_KEY);
-
-    if (storedSize == expectedSize) {
-        const size_t readSize = preferences.getBytes(NVS_KEY, scores, expectedSize);
-        if (readSize == expectedSize) {
-            for (uint8_t level = 0; level < GAME_LEVEL_COUNT; ++level) {
-                for (uint8_t rank = 0; rank < SCORES_PER_LEVEL; ++rank) {
-                    normalizeScore(scores[level][rank]);
-                }
+    // Load per-level scores
+    const size_t expectedTodaySize = sizeof(scores);
+    if (preferences.getBytesLength(NVS_KEY_TODAY) == expectedTodaySize &&
+        preferences.getBytes(NVS_KEY_TODAY, scores, expectedTodaySize) == expectedTodaySize) {
+        for (uint8_t level = 0; level < GAME_LEVEL_COUNT; ++level) {
+            for (uint8_t rank = 0; rank < SCORES_PER_LEVEL; ++rank) {
+                normalizeScore(scores[level][rank]);
             }
-            initialized = true;
-            return true;
         }
+    } else {
+        loadHardcodedScores(config);
+        if (!persistLevelScores()) return false;
     }
 
-    loadHardcodedScores(config);
-    initialized = persistAll();
-    return initialized;
+    // Load all-time scores
+    const size_t expectedAllTimeSize = sizeof(allTimeScores);
+    if (preferences.getBytesLength(NVS_KEY_ALLTIME) == expectedAllTimeSize &&
+        preferences.getBytes(NVS_KEY_ALLTIME, allTimeScores, expectedAllTimeSize) == expectedAllTimeSize) {
+        for (uint8_t rank = 0; rank < SCORES_PER_LEVEL; ++rank) {
+            normalizeAllTimeScore(allTimeScores[rank]);
+        }
+    } else {
+        loadDefaultAllTimeScores();
+        if (!persistAllTimeScores()) return false;
+    }
+
+    initialized = true;
+    return true;
 }
 
 bool HighScore::read(GameLevel level, uint8_t rank, Score& outScore) const {
@@ -40,8 +49,19 @@ int8_t HighScore::write(GameLevel level, const Score& score) {
         return -1;
     }
 
-    // Determine the rank for the new score. If it's not a high score, return -1 
-    // and do not write.
+    // A score that doesn't make the today list cannot make the all-time list
+    const int8_t rank = updateTodayScores(level, score);
+    if (rank < 0) {
+        return -1;
+    }
+
+    updateAllTimeScores(level, score);
+    persistAll();
+
+    return rank;
+}
+
+int8_t HighScore::updateTodayScores(GameLevel level, const Score& score) {
     const int8_t rank = getHighScoreRank(level, score.timeMs);
     if (rank < 0) {
         return -1;
@@ -59,10 +79,38 @@ int8_t HighScore::write(GameLevel level, const Score& score) {
     normalizeScore(normalized);
     scores[levelIndex][rank] = normalized;
 
-    // Persist the updated scores to NVS
-    persistAll();
-
     return rank;
+}
+
+void HighScore::updateAllTimeScores(GameLevel level, const Score& score) {
+    // Get the rank the score would achieve on the all-time list (if it were to be added)
+    int8_t allTimeRank = -1;
+    for (uint8_t r = 0; r < SCORES_PER_LEVEL; ++r) {
+        if (score.timeMs < allTimeScores[r].timeMs) {
+            allTimeRank = static_cast<int8_t>(r);
+            break;
+        }
+    }
+
+    // If the score doesn't make the all-time list, we can return early without modifying the list
+    if (allTimeRank < 0) {
+        return;
+    }
+
+    // Shift down lower scores to make room for the new score at the correct all-time rank
+    for (int8_t i = static_cast<int8_t>(SCORES_PER_LEVEL) - 1; i > allTimeRank; --i) {
+        allTimeScores[i] = allTimeScores[i - 1];
+    }
+
+    // Prepare the new all-time score entry with the player's name, time, and level
+    AllTimeScore allTimeScore;
+    memcpy(allTimeScore.name, score.name, sizeof(allTimeScore.name));
+    allTimeScore.timeMs = score.timeMs;
+    allTimeScore.level = level;
+    normalizeAllTimeScore(allTimeScore);
+
+    // Insert the new score at the correct all-time rank position
+    allTimeScores[allTimeRank] = allTimeScore;
 }
 
 int8_t HighScore::getHighScoreRank(GameLevel level, uint16_t time) const {
@@ -80,39 +128,68 @@ int8_t HighScore::getHighScoreRank(GameLevel level, uint16_t time) const {
     return -1;
 }
 
+bool HighScore::readAllTime(uint8_t rank, AllTimeScore& outScore) const {
+    if (!initialized || rank >= SCORES_PER_LEVEL) {
+        return false;
+    }
+
+    outScore = allTimeScores[rank];
+    return true;
+}
+
 bool HighScore::overwriteWithDefaultScores(GameConfig config) {
     if (!initialized) {
         return false;
     }
 
+    // Only reset per-level scores; all-time scores are preserved
     loadHardcodedScores(config);
-    return persistAll();
+    return persistLevelScores();
 }
 
-void HighScore::loadHardcodedScores(GameConfig config) {
-    Score defaultScores[GAME_LEVEL_COUNT][SCORES_PER_LEVEL] = {
-        {
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-            {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs},
-        },
-    };
-
-    memcpy(scores, defaultScores, sizeof(scores));
+void HighScore::loadDefaultAllTimeScores() {
+    for (uint8_t i = 0; i < SCORES_PER_LEVEL; ++i) {
+        allTimeScores[i] = {{'B', 'M', 'Z', '\0'}, UINT16_MAX, GameLevel::EASY};
+    }
 }
 
-bool HighScore::persistAll() {
-    const size_t written = preferences.putBytes(NVS_KEY, scores, sizeof(scores));
+void HighScore::loadHardcodedScores(GameConfig config) {    
+    for (uint8_t level = 0; level < GAME_LEVEL_COUNT; ++level) {
+        for (uint8_t rank = 0; rank < SCORES_PER_LEVEL; ++rank) {
+            scores[level][rank] = {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs};
+        }
+    }
+}
+
+bool HighScore::persistLevelScores() {
+    const size_t written = preferences.putBytes(NVS_KEY_TODAY, scores, sizeof(scores));
     return written == sizeof(scores);
 }
 
+bool HighScore::persistAllTimeScores() {
+    const size_t written = preferences.putBytes(NVS_KEY_ALLTIME, allTimeScores, sizeof(allTimeScores));
+    return written == sizeof(allTimeScores);
+}
+
+bool HighScore::persistAll() {
+    return persistLevelScores() && persistAllTimeScores();
+}
+
 void HighScore::normalizeScore(Score& score) {
+    score.name[3] = '\0';
+
+    for (uint8_t i = 0; i < 3; ++i) {
+        const char c = score.name[i];
+        if (c == '\0') {
+            for (uint8_t j = i; j < 3; ++j) {
+                score.name[j] = ' ';
+            }
+            break;
+        }
+    }
+}
+
+void HighScore::normalizeAllTimeScore(AllTimeScore& score) {
     score.name[3] = '\0';
 
     for (uint8_t i = 0; i < 3; ++i) {

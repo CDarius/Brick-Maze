@@ -365,11 +365,16 @@ void MainDisplay::noGameUpdateLoop() {
         IF_CANCELLED(localCancelToken, break;)
 
         // ----------------------
-        // -- EASY HIGH SCORES --
+        // -- TODAY HIGH SCORES --
         // ----------------------
         showHighScoreList(GameLevel::EASY, localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
 
+        // --------------------------
+        // -- ALL TIME HIGH SCORES --
+        // --------------------------
+        showHighScoreList(localCancelToken);
+        IF_CANCELLED(localCancelToken, break;)
     }
 
     cancelToken = nullptr; // Clear cancel token reference when exiting loop
@@ -901,7 +906,8 @@ void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
 
     // Draw high score level title on the display and copy it to buffer2
     display.clear();
-    String title = String("TOP ")  + gameLevelToString(level);
+    //String title = String("TOP ")  + gameLevelToString(level);
+    String title = "TODAY TOP";
     RgbColor skyBlueGradient[ANIM_TEXT_FONT_HEIGHT] = SKY_BLUE_GRADIENT_COLORS;
     display.drawCenteredString(0, title, skyBlueGradient, FONT_6x8);
     display.copyCanvasTo(_buffer2);
@@ -922,6 +928,54 @@ void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
         // Draw the new score line and save it to buffer2, then animate a transition between buffer1 and buffer2 to create 
         // vertical page scroll effect for each new score line.
         highScore.read(level, i, score);
+        display.clear();
+        drawHighScroreLine(score.timeMs, score.name, i);
+        display.copyCanvasTo(_buffer2);
+
+        imageTransitionAnimation.verticalPageScrollTransition(_buffer1, _buffer2, 300, 30, cancelToken);
+        IF_CANCELLED(cancelToken, return;)
+
+        // Copy the current state of the display with the newly drawn score back to buffer1 for the next transition
+        memcpy(_buffer1, _buffer2, sizeof(_buffer1));
+        delayCancellable(1500, cancelToken, 100);
+    }
+
+    // Scroll out current content to leave a blank screen for the next animation
+    display.copyCanvasTo(_buffer1);
+    imageTransitionAnimation.verticalPageScrollOutTransition(_buffer1, 300, 30, cancelToken);
+    IF_CANCELLED(cancelToken, break;)
+    delayCancellable(1500, cancelToken, 100);
+}
+
+void MainDisplay::showHighScoreList(CancelToken& cancelToken) {
+    RgbColor _buffer1[TOTAL_LEDS];
+    RgbColor _buffer2[TOTAL_LEDS];
+
+    // Capture current display state in buffer1 to use as starting point for the transition animation
+    display.copyCanvasTo(_buffer1);
+
+    // Draw all-time high score title on the display and copy it to buffer2
+    display.clear();
+    RgbColor skyBlueGradient[ANIM_TEXT_FONT_HEIGHT] = SKY_BLUE_GRADIENT_COLORS;
+    display.drawCenteredString(0, "ALL TIME", skyBlueGradient, FONT_6x8);
+    display.copyCanvasTo(_buffer2);
+    IF_CANCELLED(cancelToken, return;)
+
+    // Animate transition from previous screen to the all-time high score screen with a wipe transition
+    imageTransitionAnimation.horizontalWipeTransition(_buffer1, _buffer2, COLOR_CYAN, 2, 800, 30, cancelToken);
+    IF_CANCELLED(cancelToken, return;)
+    delayCancellable(2000, cancelToken, 100);
+    IF_CANCELLED(cancelToken, return;)
+
+    // Copy buffer2 back to buffer1 to use it as the new base for drawing the high score list
+    memcpy(_buffer1, _buffer2, sizeof(_buffer1));
+
+    // Draw all-time high score entries with a slight delay between each to create a staggered reveal effect
+    HighScore::AllTimeScore score;
+    for (uint8_t i = 0; i < highScore.SCORES_PER_LEVEL; i++) {
+        // Draw the new score line and save it to buffer2, then animate a transition between buffer1 and buffer2 to create
+        // vertical page scroll effect for each new score line.
+        highScore.readAllTime(i, score);
         display.clear();
         drawHighScroreLine(score.timeMs, score.name, i);
         display.copyCanvasTo(_buffer2);
