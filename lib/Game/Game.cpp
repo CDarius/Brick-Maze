@@ -176,10 +176,6 @@ uint16_t Game::getTimeLimitMs(GameLevel level) const {
     switch (level) {
         case GameLevel::EASY:
             return config.easyTimeLimitMs;
-        case GameLevel::MEDIUM:
-            return config.mediumTimeLimitMs;
-        case GameLevel::HARD:
-            return config.hardTimeLimitMs;
     }
     return config.easyTimeLimitMs;
 }

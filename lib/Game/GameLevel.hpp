@@ -1,21 +1,19 @@
 #pragma once
 
 enum class GameLevel {
-    EASY,
-    MEDIUM,
-    HARD
+    EASY
 };
 
-constexpr uint8_t GAME_LEVEL_COUNT = 3;
+constexpr uint8_t GAME_LEVEL_COUNT = 1;
 
 constexpr bool isValidGameLevel(GameLevel level) {
-    return level == GameLevel::EASY || level == GameLevel::MEDIUM || level == GameLevel::HARD;
+    return level == GameLevel::EASY;
 }
 
 constexpr uint8_t gameLevelToIndex(GameLevel level) {
-    return level == GameLevel::EASY ? 0 : (level == GameLevel::MEDIUM ? 1 : 2);
+    return level == GameLevel::EASY ? 0 : 0;
 }
 
 constexpr const char* gameLevelToString(GameLevel level) {
-    return level == GameLevel::EASY ? "EASY" : (level == GameLevel::MEDIUM ? "MEDIUM" : "HARD");
+    return level == GameLevel::EASY ? "EASY" : "EASY";
 }

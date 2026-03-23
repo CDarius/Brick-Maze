@@ -3,6 +3,7 @@
 #include "DemolitionCharsAnimation.hpp"
 #include "CenterGrowAndFadeAnimation.hpp"
 #include "AudioPlayer.hpp"
+#include <math.h>
 
 #define MAIN_DISPLAY_MAX_FPS    20
 #define MAIN_DISPLAY_MAX_FPS_MS (1000 / MAIN_DISPLAY_MAX_FPS)
@@ -73,6 +74,17 @@
 }
 
 namespace {
+    inline int16_t wrapIndex(int16_t value, int16_t count) {
+        return (value % count + count) % count;
+    }
+
+    // S-curve easing: slow start, faster middle, slow finish.
+    inline float smootherStep(float t) {
+        if (t <= 0.0f) return 0.0f;
+        if (t >= 1.0f) return 1.0f;
+        return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+    }
+
     /**
      * Helper function to format a time span in milliseconds into a string with seconds 
      * and centiseconds (e.g., "12.34")
@@ -365,23 +377,16 @@ void MainDisplay::noGameUpdateLoop() {
         IF_CANCELLED(localCancelToken, break;)
 
         // ----------------------
-        // -- EASY HIGH SCORES --
+        // -- TODAY HIGH SCORES --
         // ----------------------
         showHighScoreList(GameLevel::EASY, localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
 
-        // ------------------------
-        // -- MEDIUM HIGH SCORES --
-        // ------------------------
-        showHighScoreList(GameLevel::MEDIUM, localCancelToken);
+        // --------------------------
+        // -- ALL TIME HIGH SCORES --
+        // --------------------------
+        showHighScoreList(localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
-
-        // ----------------------
-        // -- HARD HIGH SCORES --
-        // ----------------------
-        showHighScoreList(GameLevel::HARD, localCancelToken);
-        IF_CANCELLED(localCancelToken, break;)
-
     }
 
     cancelToken = nullptr; // Clear cancel token reference when exiting loop
@@ -804,18 +809,42 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
 
     uint16_t frameCounter = 0;
     String playerName = String("");
-    const String nameChars = String("ABCDEFGHIJKLMNOPQRSTUVWXYZ_.-+/") + String((char)DEL_FONT_CHAR) + String((char)END_FONT_CHAR);
+    const String nameChars = String("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-+/") + String((char)DEL_FONT_CHAR) + String((char)END_FONT_CHAR);
     const int16_t nameCharsCount = nameChars.length();
-    int16_t currentCharIndex = 0;
+    int16_t selectedCharIndex = 0;
+    int16_t transitionFromIndex = 0;
+    int16_t transitionToIndex = 0;
+    int8_t transitionDirection = 0;
+    int16_t pendingCharSteps = 0;
+    float transitionProgress = 0.0f;
     float charStepAccumulator = 0.0f;
     uint32_t lastInputUpdateMs = millis();
+    uint32_t charLockUntilMs = 0;
     const float controllerDeadband = 0.2f;
     const float maxCharsPerSecond = 10.0f;
+    const float minTransitionsPerSecond = 3.0f;
+    const float maxTransitionsPerSecond = 13.0f;
+    const float settleTransitionsPerSecond = 8.0f;
+    const uint32_t charLockPauseMs = 70;
     bool buttonWasPressed = false;
+    bool transitionActive = false;
+    bool wasInDeadband = true;
+
+    enum TransitionSettleMode : uint8_t {
+        TRANSITION_SETTLE_NONE = 0,
+        TRANSITION_SETTLE_FINISH = 1,
+        TRANSITION_SETTLE_ROLLBACK = 2,
+    };
+    TransitionSettleMode transitionSettleMode = TRANSITION_SETTLE_NONE;
+
     while (!localCancelToken.isCancelled() && playerName.length() < 3) {
-        // Enter the char when the button is pressed
-        if (controllerButtonPressed && !buttonWasPressed) {
-            const char charToAdd = nameChars[currentCharIndex];
+        uint32_t nowMs = millis();
+
+        // Enter the char when the button is pressed, but ignore presses during animated transitions.
+        if (!transitionActive && controllerButtonPressed && !buttonWasPressed) {
+            int16_t commitCharIndex = selectedCharIndex;
+
+            const char charToAdd = nameChars[commitCharIndex];
             if (charToAdd == DEL_FONT_CHAR) {
                 if (playerName.length() > 0) {
                     playerName = playerName.substring(0, playerName.length() - 1); // Remove last character for delete
@@ -827,11 +856,14 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
             } else {
                 playerName += charToAdd;
             }
+
+            // Stop movement on confirm to keep selection precise.
+            charStepAccumulator = 0.0f;
+            pendingCharSteps = 0;
         }
         buttonWasPressed = controllerButtonPressed;
 
         // Get delta time since last input update to calculate how many characters to move in the name selection based on controller input
-        uint32_t nowMs = millis();
         float dtSeconds = (float)(nowMs - lastInputUpdateMs) / 1000.0f;
         lastInputUpdateMs = nowMs;
 
@@ -843,36 +875,95 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
         } else if (controllerX < -controllerDeadband) {
             effectiveInput = (controllerX + controllerDeadband) / (1.0f - controllerDeadband);
         }
+        float absEffectiveInput = fabsf(effectiveInput);
+        bool inDeadband = absEffectiveInput < 0.001f;
 
-        charStepAccumulator += (effectiveInput * maxCharsPerSecond) * dtSeconds;
-
-        if (controllerButtonPressed)
-        {
-            charStepAccumulator = 0; // Reset character step accumulator when the button is pressed to allow precise character selection without overshooting due to accumulated input
+        if (!inDeadband && nowMs >= charLockUntilMs) {
+            charStepAccumulator += (effectiveInput * maxCharsPerSecond) * dtSeconds;
         }
 
-        if (abs(controllerX) > controllerDeadband * 1.2f) {
+        if (inDeadband) {
+            pendingCharSteps = 0;
+            charStepAccumulator = 0.0f;
+
+            if (!wasInDeadband && transitionActive && transitionSettleMode == TRANSITION_SETTLE_NONE) {
+                transitionSettleMode = transitionProgress < 0.5f ? TRANSITION_SETTLE_ROLLBACK : TRANSITION_SETTLE_FINISH;
+            }
+            wasInDeadband = true;
+        } else {
+            wasInDeadband = false;
+
+            int16_t charSteps = (int16_t)charStepAccumulator;
+            if (charSteps != 0) {
+                pendingCharSteps += charSteps;
+                charStepAccumulator -= static_cast<float>(charSteps);
+            }
+
+            transitionSettleMode = TRANSITION_SETTLE_NONE;
+        }
+
+        if (absEffectiveInput > 0.1f) {
             frameCounter = 0; // Don't blink while the player is actively changing the character to provide better feedback on the selection change
         }
 
-        // Convert the accumulated character steps to an integer to determine how many characters to move in 
-        // the name selection.
-        int16_t charSteps = (int16_t)charStepAccumulator;
-        if (charSteps != 0) {
-            currentCharIndex = (currentCharIndex + charSteps + nameCharsCount) % nameCharsCount;
-            charStepAccumulator -= static_cast<float>(charSteps);
+        if (!transitionActive && pendingCharSteps != 0 && nowMs >= charLockUntilMs) {
+            int8_t stepDirection = pendingCharSteps > 0 ? 1 : -1;
+            transitionFromIndex = selectedCharIndex;
+            transitionToIndex = wrapIndex(transitionFromIndex + stepDirection, nameCharsCount);
+            transitionDirection = stepDirection;
+            transitionProgress = 0.0f;
+            transitionSettleMode = TRANSITION_SETTLE_NONE;
+            transitionActive = true;
+            pendingCharSteps -= stepDirection;
+        }
+
+        if (transitionActive) {
+            float transitionRate = settleTransitionsPerSecond;
+            if (transitionSettleMode == TRANSITION_SETTLE_NONE) {
+                transitionRate = minTransitionsPerSecond + (maxTransitionsPerSecond - minTransitionsPerSecond) * absEffectiveInput;
+                transitionProgress += transitionRate * dtSeconds;
+            } else if (transitionSettleMode == TRANSITION_SETTLE_FINISH) {
+                transitionProgress += transitionRate * dtSeconds;
+            } else {
+                transitionProgress -= transitionRate * dtSeconds;
+            }
+
+            if (transitionProgress >= 1.0f) {
+                transitionProgress = 1.0f;
+                selectedCharIndex = transitionToIndex;
+                transitionActive = false;
+                transitionSettleMode = TRANSITION_SETTLE_NONE;
+                charLockUntilMs = nowMs + charLockPauseMs;
+            } else if (transitionProgress <= 0.0f) {
+                transitionProgress = 0.0f;
+                transitionActive = false;
+                transitionSettleMode = TRANSITION_SETTLE_NONE;
+                charLockUntilMs = nowMs + charLockPauseMs;
+            }
         }
 
         // Display the current name selection with a blinking effect on the currently selected character to indicate that it's active. 
-        String currentChar = String(nameChars[currentCharIndex]);
         bool blinkOn = frameCounter % 16 < 8;
         frameCounter++;
 
-        if (blinkOn && playerName.length() < 3) {
-            drawHighScroreLine(endGameTimeSpanMs, playerName + currentChar, endGameTimeRank);
-        }
-        else {
-            drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank); 
+        if (transitionActive && playerName.length() < 3) {
+            drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank);
+            int16_t charX = 15 + display.getStringWidth(playerName, FONT_6x8, true);
+            float easedProgress = smootherStep(transitionProgress);
+            int16_t offset = (int16_t)roundf(easedProgress * ANIM_TEXT_FONT_HEIGHT);
+            int16_t outgoingCharY = transitionDirection > 0 ? -offset : offset;
+            int16_t incomingCharY = transitionDirection > 0 ? (ANIM_TEXT_FONT_HEIGHT - offset) : (-ANIM_TEXT_FONT_HEIGHT + offset);
+
+            display.drawChar(charX, outgoingCharY, nameChars[transitionFromIndex], neonGradient, FONT_6x8, true);
+            display.drawChar(charX, incomingCharY, nameChars[transitionToIndex], neonGradient, FONT_6x8, true);
+        } else {
+            String currentChar = String(nameChars[selectedCharIndex]);
+            if (blinkOn && playerName.length() < 3) {
+                drawHighScroreLine(endGameTimeSpanMs, playerName + currentChar, endGameTimeRank);
+            }
+            else {
+                drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank);
+            }
         }
         display.show();
 
@@ -913,7 +1004,8 @@ void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
 
     // Draw high score level title on the display and copy it to buffer2
     display.clear();
-    String title = String("TOP ")  + gameLevelToString(level);
+    //String title = String("TOP ")  + gameLevelToString(level);
+    String title = "TODAY TOP";
     RgbColor skyBlueGradient[ANIM_TEXT_FONT_HEIGHT] = SKY_BLUE_GRADIENT_COLORS;
     display.drawCenteredString(0, title, skyBlueGradient, FONT_6x8);
     display.copyCanvasTo(_buffer2);
@@ -934,6 +1026,54 @@ void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
         // Draw the new score line and save it to buffer2, then animate a transition between buffer1 and buffer2 to create 
         // vertical page scroll effect for each new score line.
         highScore.read(level, i, score);
+        display.clear();
+        drawHighScroreLine(score.timeMs, score.name, i);
+        display.copyCanvasTo(_buffer2);
+
+        imageTransitionAnimation.verticalPageScrollTransition(_buffer1, _buffer2, 300, 30, cancelToken);
+        IF_CANCELLED(cancelToken, return;)
+
+        // Copy the current state of the display with the newly drawn score back to buffer1 for the next transition
+        memcpy(_buffer1, _buffer2, sizeof(_buffer1));
+        delayCancellable(1500, cancelToken, 100);
+    }
+
+    // Scroll out current content to leave a blank screen for the next animation
+    display.copyCanvasTo(_buffer1);
+    imageTransitionAnimation.verticalPageScrollOutTransition(_buffer1, 300, 30, cancelToken);
+    IF_CANCELLED(cancelToken, break;)
+    delayCancellable(1500, cancelToken, 100);
+}
+
+void MainDisplay::showHighScoreList(CancelToken& cancelToken) {
+    RgbColor _buffer1[TOTAL_LEDS];
+    RgbColor _buffer2[TOTAL_LEDS];
+
+    // Capture current display state in buffer1 to use as starting point for the transition animation
+    display.copyCanvasTo(_buffer1);
+
+    // Draw all-time high score title on the display and copy it to buffer2
+    display.clear();
+    RgbColor skyBlueGradient[ANIM_TEXT_FONT_HEIGHT] = SKY_BLUE_GRADIENT_COLORS;
+    display.drawCenteredString(0, "ALL TIME", skyBlueGradient, FONT_6x8);
+    display.copyCanvasTo(_buffer2);
+    IF_CANCELLED(cancelToken, return;)
+
+    // Animate transition from previous screen to the all-time high score screen with a wipe transition
+    imageTransitionAnimation.horizontalWipeTransition(_buffer1, _buffer2, COLOR_CYAN, 2, 800, 30, cancelToken);
+    IF_CANCELLED(cancelToken, return;)
+    delayCancellable(2000, cancelToken, 100);
+    IF_CANCELLED(cancelToken, return;)
+
+    // Copy buffer2 back to buffer1 to use it as the new base for drawing the high score list
+    memcpy(_buffer1, _buffer2, sizeof(_buffer1));
+
+    // Draw all-time high score entries with a slight delay between each to create a staggered reveal effect
+    HighScore::AllTimeScore score;
+    for (uint8_t i = 0; i < highScore.SCORES_PER_LEVEL; i++) {
+        // Draw the new score line and save it to buffer2, then animate a transition between buffer1 and buffer2 to create
+        // vertical page scroll effect for each new score line.
+        highScore.readAllTime(i, score);
         display.clear();
         drawHighScroreLine(score.timeMs, score.name, i);
         display.copyCanvasTo(_buffer2);
