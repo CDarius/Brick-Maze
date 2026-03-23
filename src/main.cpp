@@ -355,21 +355,27 @@ void gameEnd() {
         int8_t rank = highScore.getHighScoreRank(lastGameLevel, lastGameCompletionTimeMs);
         if (rank >= 0) {
             // Enter player name and show high score celebration animation on the display
+            // Press the stop button to cancel the high score submission.
             controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::WRITE_PLAYER_NAME);
             mainDisplay.setEndGameHighScoreMode(lastGameCompletionTimeMs, lastGameLevel, rank);
-            while (!mainDisplay.isModeDone()) {        
+            bool highScoreCancel = false;
+            while (!mainDisplay.isModeDone() && !highScoreCancel) {
+                highScoreCancel = isStopButtonPressed();
                 delay(100);
             }
-            // Save the new high score
-            const String playerName = mainDisplay.getEndGamePlayerName();
-            HighScore::Score newScore = {{' ', ' ', ' ', '\0'}, lastGameCompletionTimeMs};
-            for (uint8_t i = 0; i < 3 && i < playerName.length(); ++i) {
-                newScore.name[i] = playerName[i];
-            }
-            highScore.write(lastGameLevel, newScore);
 
-            // Small delay to show the new high score on the high score table before returning to idle state
-            delay(2000);
+            if (!highScoreCancel) {
+                // Save the new high score
+                const String playerName = mainDisplay.getEndGamePlayerName();
+                HighScore::Score newScore = {{' ', ' ', ' ', '\0'}, lastGameCompletionTimeMs};
+                for (uint8_t i = 0; i < 3 && i < playerName.length(); ++i) {
+                    newScore.name[i] = playerName[i];
+                }
+                highScore.write(lastGameLevel, newScore);
+
+                // Small delay to show the new high score on the high score table before returning to idle state
+                delay(2000);
+            }
         } else {
             // If not an high score just show the completion time without entering a name
             mainDisplay.setEndGameTimeMode(lastGameCompletionTimeMs);
