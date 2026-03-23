@@ -60,7 +60,7 @@ void showInitFailed(const char* displayMessage, const char* serialMessage) {
     display.clear();
     String displayMessageStr(displayMessage);
     displayMessageStr.toUpperCase();
-    display.drawString(0,0, displayMessageStr, COLOR_RED, FONT_4x6);
+    display.drawString(0,1, displayMessageStr, COLOR_RED, FONT_4x6);
     display.show();
     while (true)
     {
