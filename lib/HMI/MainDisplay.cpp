@@ -822,13 +822,26 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
     uint32_t charLockUntilMs = 0;
     const float controllerDeadband = 0.2f;
     const float maxCharsPerSecond = 10.0f;
-    const float minTransitionsPerSecond = 3.0f;
-    const float maxTransitionsPerSecond = 13.0f;
-    const float settleTransitionsPerSecond = 8.0f;
-    const uint32_t charLockPauseMs = 70;
+    const float minTransitionsPerSecond = 1.0f;
+    const float maxTransitionsPerSecond = 5.0f;
+    const float settleTransitionsPerSecond = 2.0f;
+    const uint32_t minCharLockPauseMs = 150;
+    const uint32_t maxCharLockPauseMs = 300;
     bool buttonWasPressed = false;
     bool transitionActive = false;
     bool wasInDeadband = true;
+    float lastTransitionRate = minTransitionsPerSecond;
+
+    auto getCharLockPauseMs = [&](float transitionRate) -> uint32_t {
+        float rateRange = maxTransitionsPerSecond - minTransitionsPerSecond;
+        if (rateRange <= 0.0f) {
+            return maxCharLockPauseMs;
+        }
+
+        float clampedRate = fminf(fmaxf(transitionRate, minTransitionsPerSecond), maxTransitionsPerSecond);
+        float normalizedRate = (clampedRate - minTransitionsPerSecond) / rateRange;
+        return static_cast<uint32_t>(roundf(maxCharLockPauseMs - ((maxCharLockPauseMs - minCharLockPauseMs) * normalizedRate)));
+    };
 
     enum TransitionSettleMode : uint8_t {
         TRANSITION_SETTLE_NONE = 0,
@@ -928,17 +941,19 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
                 transitionProgress -= transitionRate * dtSeconds;
             }
 
+            lastTransitionRate = transitionRate;
+
             if (transitionProgress >= 1.0f) {
                 transitionProgress = 1.0f;
                 selectedCharIndex = transitionToIndex;
                 transitionActive = false;
                 transitionSettleMode = TRANSITION_SETTLE_NONE;
-                charLockUntilMs = nowMs + charLockPauseMs;
+                charLockUntilMs = nowMs + getCharLockPauseMs(lastTransitionRate);
             } else if (transitionProgress <= 0.0f) {
                 transitionProgress = 0.0f;
                 transitionActive = false;
                 transitionSettleMode = TRANSITION_SETTLE_NONE;
-                charLockUntilMs = nowMs + charLockPauseMs;
+                charLockUntilMs = nowMs + getCharLockPauseMs(lastTransitionRate);
             }
         }
 
@@ -948,7 +963,8 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
 
         if (transitionActive && playerName.length() < 3) {
             drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank);
-            int16_t charX = 15 + display.getStringWidth(playerName, FONT_6x8, true);
+            bool addSpace = playerName.length() > 0;
+            int16_t charX = 15 + (addSpace ? 1 : 0) + display.getStringWidth(playerName, FONT_6x8, true);
             float easedProgress = smootherStep(transitionProgress);
             int16_t offset = (int16_t)roundf(easedProgress * ANIM_TEXT_FONT_HEIGHT);
             int16_t outgoingCharY = transitionDirection > 0 ? -offset : offset;
