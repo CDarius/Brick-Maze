@@ -83,7 +83,7 @@ private:
     void endGameTimeUpdateLoop();
     void endGameHighScoreUpdateLoop();
 
-    void drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank);
+    void drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank, bool showTrophy, uint16_t thropyFrame = 0);
     void showHighScoreList(GameLevel level, CancelToken& cancelToken);
     void showHighScoreList(CancelToken& cancelToken);
     void showBrickMazeTitleScreen(CancelToken& cancelToken, bool playTitleAudio);

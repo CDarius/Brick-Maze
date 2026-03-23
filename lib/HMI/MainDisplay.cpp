@@ -962,7 +962,7 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
         frameCounter++;
 
         if (transitionActive && playerName.length() < 3) {
-            drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank);
+            drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank, false);
             bool addSpace = playerName.length() > 0;
             int16_t charX = 15 + (addSpace ? 1 : 0) + display.getStringWidth(playerName, FONT_6x8, true);
             float easedProgress = smootherStep(transitionProgress);
@@ -975,10 +975,10 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
         } else {
             String currentChar = String(nameChars[selectedCharIndex]);
             if (blinkOn && playerName.length() < 3) {
-                drawHighScroreLine(endGameTimeSpanMs, playerName + currentChar, endGameTimeRank);
+                drawHighScroreLine(endGameTimeSpanMs, playerName + currentChar, endGameTimeRank, false);
             }
             else {
-                drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank);
+                drawHighScroreLine(endGameTimeSpanMs, playerName, endGameTimeRank, false);
             }
         }
         display.show();
@@ -1000,15 +1000,25 @@ void MainDisplay::endGameHighScoreUpdateLoop() {
     cancelToken = nullptr;
 }
 
-void MainDisplay::drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank) {    
+void MainDisplay::drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank, bool showTrophy, uint16_t thropyFrame) {    
     RgbColor neonGradient[ANIM_TEXT_FONT_HEIGHT] = NEON_GRADIENT_COLORS;
     RgbColor goldGradient[ANIM_TEXT_FONT_HEIGHT] = GOLD_GRADIENT_COLORS;
     
     String timeText = formatTimeSpan(timeSpanMs);
     display.clear();
     display.drawRightString(0, timeText, goldGradient, FONT_6x8, true);
-    display.drawString(0,0, String(rank + 1) + ".", goldGradient, FONT_6x8, true);
-    display.drawString(15, 0, name, neonGradient, FONT_6x8, true);
+    if (showTrophy) {
+        display.drawString(0,0, String(rank + 1), goldGradient, FONT_6x8, true);
+        drawShiningThropy(display, 7, 0, thropyFrame);
+        uint16_t nameWidth = display.getStringWidth(name, FONT_6x8, true);
+        const uint16_t maxNameWidth = 27; // Max name with in pixel to fit in the display
+        const uint16_t nameStartX = 15;
+        uint16_t nameX = (maxNameWidth - nameWidth) / 2 + nameStartX; // Center the name within the max name width area
+        display.drawString(nameX, 0, name, neonGradient, FONT_6x8, true);
+    } else {
+        display.drawString(0,0, String(rank + 1) + ".", goldGradient, FONT_6x8, true);
+        display.drawString(15, 0, name, neonGradient, FONT_6x8, true);
+    }
 }
 
 void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
@@ -1043,7 +1053,7 @@ void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
         // vertical page scroll effect for each new score line.
         highScore.read(level, i, score);
         display.clear();
-        drawHighScroreLine(score.timeMs, score.name, i);
+        drawHighScroreLine(score.timeMs, score.name, i, false);
         display.copyCanvasTo(_buffer2);
 
         imageTransitionAnimation.verticalPageScrollTransition(_buffer1, _buffer2, 300, 30, cancelToken);
@@ -1091,7 +1101,7 @@ void MainDisplay::showHighScoreList(CancelToken& cancelToken) {
         // vertical page scroll effect for each new score line.
         highScore.readAllTime(i, score);
         display.clear();
-        drawHighScroreLine(score.timeMs, score.name, i);
+        drawHighScroreLine(score.timeMs, score.name, i, true);
         display.copyCanvasTo(_buffer2);
 
         imageTransitionAnimation.verticalPageScrollTransition(_buffer1, _buffer2, 300, 30, cancelToken);
@@ -1099,7 +1109,18 @@ void MainDisplay::showHighScoreList(CancelToken& cancelToken) {
 
         // Copy the current state of the display with the newly drawn score back to buffer1 for the next transition
         memcpy(_buffer1, _buffer2, sizeof(_buffer1));
-        delayCancellable(1500, cancelToken, 100);
+
+        // Make the thropy shine
+        uint16_t throphyFrame = 0;
+        unsigned long endTime = millis() + 1500;
+        while (millis() < endTime && !cancelToken.isCancelled()) {
+            drawHighScroreLine(score.timeMs, score.name, i, true, throphyFrame % 16);
+            throphyFrame++;
+            display.show();
+            delay(MAIN_DISPLAY_MAX_FPS_MS);
+        }
+
+        IF_CANCELLED(cancelToken, return;)
     }
 
     // Scroll out current content to leave a blank screen for the next animation
