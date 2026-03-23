@@ -15,7 +15,7 @@ bool HighScore::begin(GameConfig config) {
             }
         }
     } else {
-        loadHardcodedScores(config);
+        loadDefaultScores(config);
         if (!persistLevelScores()) return false;
     }
 
@@ -27,7 +27,7 @@ bool HighScore::begin(GameConfig config) {
             normalizeAllTimeScore(allTimeScores[rank]);
         }
     } else {
-        loadDefaultAllTimeScores();
+        loadDefaultAllTimeScores(config);
         if (!persistAllTimeScores()) return false;
     }
 
@@ -143,17 +143,17 @@ bool HighScore::overwriteWithDefaultScores(GameConfig config) {
     }
 
     // Only reset per-level scores; all-time scores are preserved
-    loadHardcodedScores(config);
+    loadDefaultScores(config);
     return persistLevelScores();
 }
 
-void HighScore::loadDefaultAllTimeScores() {
+void HighScore::loadDefaultAllTimeScores(GameConfig config) {
     for (uint8_t i = 0; i < SCORES_PER_LEVEL; ++i) {
-        allTimeScores[i] = {{'B', 'M', 'Z', '\0'}, UINT16_MAX, GameLevel::EASY};
+        allTimeScores[i] = {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs, GameLevel::EASY};
     }
 }
 
-void HighScore::loadHardcodedScores(GameConfig config) {    
+void HighScore::loadDefaultScores(GameConfig config) {    
     for (uint8_t level = 0; level < GAME_LEVEL_COUNT; ++level) {
         for (uint8_t rank = 0; rank < SCORES_PER_LEVEL; ++rank) {
             scores[level][rank] = {{'B', 'M', 'Z', '\0'}, config.easyTimeLimitMs};

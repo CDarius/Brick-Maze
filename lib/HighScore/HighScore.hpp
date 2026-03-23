@@ -41,8 +41,8 @@ private:
     AllTimeScore allTimeScores[SCORES_PER_LEVEL];
     bool initialized = false;
 
-    void loadHardcodedScores(GameConfig config);
-    void loadDefaultAllTimeScores();
+    void loadDefaultScores(GameConfig config);
+    void loadDefaultAllTimeScores(GameConfig config);
     bool persistLevelScores();
     bool persistAllTimeScores();
     bool persistAll();
