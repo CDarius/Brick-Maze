@@ -251,14 +251,16 @@ void setup() {
 }
 
 void beforeGame();
-void startGame();
+bool startGame();
 void gameEnd();
 
 void loop() {
     waitingForGameToStart = true;
     beforeGame();
     waitingForGameToStart = false;
-    startGame();
+    if (!startGame()) {
+        return;
+    }
     Serial.println("Game started. Waiting for it to end...");
 
     // Wait for game to end
@@ -312,10 +314,14 @@ void beforeGame() {
     }
 }
 
-void startGame() {
+bool startGame() {
     game.prepareGame();
+    controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::WAITING_TO_START);
     mainDisplay.setReadySetGoMode();
     while (!mainDisplay.isModeDone()) {
+        if (isStopButtonPressed()) {
+            return false;
+        }
         delay(50);
     }
 
@@ -326,6 +332,7 @@ void startGame() {
     uint16_t criticalThresholdMs = getCriticalThresholdMs(nextGameLevel);
     mainDisplay.setCountdownMode(gameEndTimeMs, gameTimeLimitMs, criticalThresholdMs);
     controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::IN_GAME);
+    return true;
 }
 
 void gameEnd() {

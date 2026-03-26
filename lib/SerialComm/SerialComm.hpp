@@ -14,7 +14,8 @@ class SerialComm {
             NO_GAME = 0,
             IN_GAME = 1,
             END_GAME = 2,
-            WRITE_PLAYER_NAME = 3,            
+            WRITE_PLAYER_NAME = 3,
+            WAITING_TO_START = 4
         };
 
         /**
