@@ -2,16 +2,41 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 /**
  * I2CDevice is a base class for communicating with I2C devices. It provides methods to initialize communication,
  * write bytes to a device register, and read bytes from a device register. Derived classes can implement specific
  * functionality for different I2C devices by utilizing these basic read/write operations.
+ *
+ * Every transaction is guarded by a bus mutex shared by all I2CDevice instances, so devices on the same bus can be
+ * used safely from different FreeRTOS tasks. In particular the "write register address, then read" sequence of a
+ * register read is atomic: no other task can change the device register pointer in between.
+ * The project uses a single I2C bus (Wire), so a single mutex is shared by all devices.
  */
 class I2CDevice {
     protected:
         uint8_t addr;
         TwoWire& wire;
+
+        /**
+         * Returns the recursive mutex that guards the I2C bus. It is created on first use, which happens in setup()
+         * (device begin()) before any task is started.
+         */
+        static SemaphoreHandle_t busMutex();
+
+        /**
+         * RAII helper that holds the bus mutex for the lifetime of the object.
+         * The mutex is recursive, so a method holding the lock can call another locking method.
+         */
+        class BusLock {
+            public:
+                BusLock() { xSemaphoreTakeRecursive(busMutex(), portMAX_DELAY); }
+                ~BusLock() { xSemaphoreGiveRecursive(busMutex()); }
+                BusLock(const BusLock&) = delete;
+                BusLock& operator=(const BusLock&) = delete;
+        };
 
         /**
          * Write multiple bytes to the device starting from a specific register.
@@ -21,13 +46,13 @@ class I2CDevice {
          * @return true if the write operation was successful, false otherwise.
          */
         inline bool writeBytes(uint8_t reg, uint8_t *buffer, uint8_t length) {
+            BusLock lock;
             wire.beginTransmission(addr);
             wire.write(reg);
             for (uint8_t i = 0; i < length; i++) {
                 wire.write(*(buffer + i));
             }
-            if (wire.endTransmission() == 0) return true;
-            return false;
+            return wire.endTransmission() == 0;
         }
 
         /**
@@ -38,30 +63,34 @@ class I2CDevice {
          * @return true if the read operation was successful, false otherwise.
          */
         inline bool readBytes(uint8_t reg, uint8_t *buffer, uint8_t length) {
-            uint8_t index = 0;
+            BusLock lock;
             wire.beginTransmission(addr);
             wire.write(reg);
-            wire.endTransmission(false);
-            if (wire.requestFrom(addr, length)) {
-                for (uint8_t i = 0; i < length; i++) {
-                    buffer[index++] = wire.read();
-                }
-                return true;
+            if (wire.endTransmission(false) != 0) {
+                return false;
             }
-            return false;
+            if (wire.requestFrom(addr, length) != length) {
+                return false;
+            }
+            for (uint8_t i = 0; i < length; i++) {
+                buffer[i] = wire.read();
+            }
+            return true;
         }
 
         /**
          * Read a 16-bit unsigned integer from the device starting from a specific register.
          * @param reg The starting register address to read from.
-         * @param value Pointer to the variable where the read value will be stored.
+         * @param value Pointer to the variable where the read value will be stored. Unchanged on failure.
          * @return true if the read operation was successful, false otherwise.
          */
         inline bool readUint16(uint8_t reg, uint16_t *value) {
             uint8_t read_buf[2];
-            bool result         = readBytes(reg, read_buf, 2);
-            *value              = (read_buf[1] << 8) | read_buf[0];
-            return result;
+            if (!readBytes(reg, read_buf, 2)) {
+                return false;
+            }
+            *value = (read_buf[1] << 8) | read_buf[0];
+            return true;
         }
 
         /**
@@ -80,20 +109,11 @@ class I2CDevice {
         /**
          * Read a single byte from the device starting from a specific register.
          * @param reg The register address to read from.
-         * @param data Pointer to the variable where the read byte will be stored.
+         * @param data Pointer to the variable where the read byte will be stored. Unchanged on failure.
          * @return true if the read operation was successful, false otherwise.
          */
         inline bool readByte(uint8_t reg, uint8_t *data) {
-            wire.beginTransmission(addr);
-            wire.write(reg);
-            wire.endTransmission();
-
-            if (wire.requestFrom(addr, (uint8_t)1)) {
-                *data = wire.read();
-                return true;
-            }
-
-            return false;
+            return readBytes(reg, data, 1);
         }
 
         /**
@@ -103,19 +123,16 @@ class I2CDevice {
          * @return true if the write operation was successful, false otherwise.
          */
         inline bool writeByte(uint8_t reg, uint8_t data) {
-            wire.beginTransmission(addr);
-            wire.write(reg);
-            wire.write(data);
-            return (wire.endTransmission() == 0);
+            return writeBytes(reg, &data, 1);
         }
 
    public:
-        /** 
+        /**
          * Constructor for I2CDevice.
          * @param wire Reference to the TwoWire instance (I2C bus) to use for communication.
          * @param addr The I2C address of the device.
         */
-        I2CDevice(TwoWire &wire, uint8_t addr) : wire(wire), addr(addr) 
+        I2CDevice(TwoWire &wire, uint8_t addr) : addr(addr), wire(wire)
         {
         }
 
