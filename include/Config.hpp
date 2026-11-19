@@ -14,7 +14,7 @@ ControllerConfig getDefaultControllerConfig() {
 
 GameConfig getDefaultGameConfig() {
     GameConfig config {
-        .easyTimeLimitMs = 50000,   // Time limit for easy level in milliseconds
+        .timeLimitMs = 50000,       // Game time limit in milliseconds
         .maxServoPulseRate = 4000,  // Maximum servo pulse change rate in pulses/second
         .servoPulseRange = 600,     // Range of servo pulse in microseconds (e.g. 1000 for 1000-2000us)
 

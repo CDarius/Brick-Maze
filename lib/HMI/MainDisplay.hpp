@@ -5,7 +5,6 @@
 #include <Icons.hpp>
 #include <TextAnimation.hpp>
 #include <ImageTransitionAnimation.hpp>
-#include <GameLevel.hpp>
 #include <HighScore.hpp>
 #include <CancelToken.hpp>
 
@@ -26,7 +25,7 @@ public:
     void setGameWinMode();
     void setTableLevelingMode();
     void setEndGameTimeMode(uint32_t timeSpanMs);
-    void setEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank);
+    void setEndGameHighScoreMode(uint32_t timeSpanMs, uint8_t rank);
     void updateLoop();
     void updateControllerStatus(float x, float y, bool buttonPressed) {
         controllerX = x;
@@ -63,7 +62,6 @@ private:
     // Show end game time mode properties
     uint32_t endGameTimeSpanMs;
     bool endGameTimeIsNewRecord;
-    GameLevel endGameTimeGameLevel;
     uint8_t endGameTimeRank;
     String endGamePlayerName;
 
@@ -84,8 +82,8 @@ private:
     void endGameHighScoreUpdateLoop();
 
     void drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t rank, bool showTrophy, uint16_t thropyFrame = 0);
-    void showHighScoreList(GameLevel level, CancelToken& cancelToken);
-    void showHighScoreList(CancelToken& cancelToken);
+    void showTodayHighScoreList(CancelToken& cancelToken);
+    void showAllTimeHighScoreList(CancelToken& cancelToken);
     void showBrickMazeTitleScreen(CancelToken& cancelToken, bool playTitleAudio);
     void showReadySetGoAnimation(CancelToken& cancelToken);
 };

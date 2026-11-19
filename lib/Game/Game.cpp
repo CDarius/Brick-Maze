@@ -45,7 +45,6 @@ void Game::begin(const GameConfig config) {
     // Initialize last game results
     lastGameResult = GameResult::NONE;
     lastGameCompletionTimeMs = 0;
-    lastGameLevel = GameLevel::EASY;
 }
 
 void Game::prepareGame() {
@@ -61,7 +60,7 @@ void Game::prepareGame() {
     yServoRamp.setTarget(static_cast<int16_t>(yCenterPulseUs) + config.prepareGameYPulseus);
 }
 
-void Game::start(GameLevel level) {
+void Game::start() {
     if (status != GameStatus::PREPARING) {
         return;
     }
@@ -74,8 +73,7 @@ void Game::start(GameLevel level) {
     delay(config.prepareKickBackDelayMs);
     
     // Let's the player control the servos after the kick back
-    currentLevel = level;
-    currentTimeLimitMs = getTimeLimitMs(level);
+    currentTimeLimitMs = config.timeLimitMs;
     startTimeMs = millis();
     status = GameStatus::RUNNING;
     resetBallDroppedFlag();
@@ -108,7 +106,6 @@ void Game::update(float controllerX, float controllerY) {
             yServoRamp.setTarget(static_cast<int16_t>(yCenterPulseUs));
             lastGameResult = GameResult::LOST;
             lastGameCompletionTimeMs = currentTimeLimitMs;
-            lastGameLevel = currentLevel;
             return;
         }
 
@@ -120,7 +117,6 @@ void Game::update(float controllerX, float controllerY) {
             timer.load(config.ballDropTimeMs);
             lastGameResult = GameResult::WON;
             lastGameCompletionTimeMs = elapsedMs;
-            lastGameLevel = currentLevel;
             return;
         }
 
@@ -166,18 +162,9 @@ bool Game::isReadyToStart() const {
     return status == GameStatus::NOT_RUNNING;
 }
 
-void Game::lastGameStats(GameLevel& level, GameResult& result, uint16_t& completionTime) const {
-    level = lastGameLevel;
+void Game::lastGameStats(GameResult& result, uint16_t& completionTime) const {
     result = lastGameResult;
     completionTime = lastGameCompletionTimeMs;
-}
-
-uint16_t Game::getTimeLimitMs(GameLevel level) const {
-    switch (level) {
-        case GameLevel::EASY:
-            return config.easyTimeLimitMs;
-    }
-    return config.easyTimeLimitMs;
 }
 
 void Game::servoCalibration(MPU6886& imu) {

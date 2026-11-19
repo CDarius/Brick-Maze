@@ -292,7 +292,7 @@ void MainDisplay::setEndGameTimeMode(uint32_t timeSpanMs) {
     }
 }
 
-void MainDisplay::setEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, uint8_t rank) {
+void MainDisplay::setEndGameHighScoreMode(uint32_t timeSpanMs, uint8_t rank) {
     uint8_t newMode = MAIN_DISPLAY_MODE_END_GAME_HIGH_SCORE;
     bool modeChanged = newMode != currentMode;
 
@@ -304,7 +304,6 @@ void MainDisplay::setEndGameHighScoreMode(uint32_t timeSpanMs, GameLevel level, 
     modeDone = false;
     endGameTimeSpanMs = timeSpanMs;
     endGameTimeIsNewRecord = true;
-    endGameTimeGameLevel = level;
     endGameTimeRank = rank;
     endGamePlayerName = "";
 
@@ -379,13 +378,13 @@ void MainDisplay::noGameUpdateLoop() {
         // ----------------------
         // -- TODAY HIGH SCORES --
         // ----------------------
-        showHighScoreList(GameLevel::EASY, localCancelToken);
+        showTodayHighScoreList(localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
 
         // --------------------------
         // -- ALL TIME HIGH SCORES --
         // --------------------------
-        showHighScoreList(localCancelToken);
+        showAllTimeHighScoreList(localCancelToken);
         IF_CANCELLED(localCancelToken, break;)
     }
 
@@ -1021,16 +1020,15 @@ void MainDisplay::drawHighScroreLine(uint32_t timeSpanMs, String name, uint8_t r
     }
 }
 
-void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
+void MainDisplay::showTodayHighScoreList(CancelToken& cancelToken) {
     RgbColor _buffer1[TOTAL_LEDS];
     RgbColor _buffer2[TOTAL_LEDS];
 
     // Capture current display state in buffer1 to use as starting point for the transition animation
     display.copyCanvasTo(_buffer1);
 
-    // Draw high score level title on the display and copy it to buffer2
+    // Draw high score title on the display and copy it to buffer2
     display.clear();
-    //String title = String("TOP ")  + gameLevelToString(level);
     String title = "TODAY TOP";
     RgbColor skyBlueGradient[ANIM_TEXT_FONT_HEIGHT] = SKY_BLUE_GRADIENT_COLORS;
     display.drawCenteredString(0, title, skyBlueGradient, FONT_6x8);
@@ -1048,10 +1046,10 @@ void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
 
     // Draw high score entries with a slight delay between each to create a staggered reveal effect
     HighScore::Score score;
-    for (uint8_t i = 0; i < highScore.SCORES_PER_LEVEL; i++) {
+    for (uint8_t i = 0; i < HighScore::SCORE_COUNT; i++) {
         // Draw the new score line and save it to buffer2, then animate a transition between buffer1 and buffer2 to create 
         // vertical page scroll effect for each new score line.
-        highScore.read(level, i, score);
+        highScore.read(i, score);
         display.clear();
         drawHighScroreLine(score.timeMs, score.name, i, false);
         display.copyCanvasTo(_buffer2);
@@ -1071,7 +1069,7 @@ void MainDisplay::showHighScoreList(GameLevel level, CancelToken& cancelToken) {
     delayCancellable(1500, cancelToken, 100);
 }
 
-void MainDisplay::showHighScoreList(CancelToken& cancelToken) {
+void MainDisplay::showAllTimeHighScoreList(CancelToken& cancelToken) {
     RgbColor _buffer1[TOTAL_LEDS];
     RgbColor _buffer2[TOTAL_LEDS];
 
@@ -1095,8 +1093,8 @@ void MainDisplay::showHighScoreList(CancelToken& cancelToken) {
     memcpy(_buffer1, _buffer2, sizeof(_buffer1));
 
     // Draw all-time high score entries with a slight delay between each to create a staggered reveal effect
-    HighScore::AllTimeScore score;
-    for (uint8_t i = 0; i < highScore.SCORES_PER_LEVEL; i++) {
+    HighScore::Score score;
+    for (uint8_t i = 0; i < HighScore::SCORE_COUNT; i++) {
         // Draw the new score line and save it to buffer2, then animate a transition between buffer1 and buffer2 to create
         // vertical page scroll effect for each new score line.
         highScore.readAllTime(i, score);

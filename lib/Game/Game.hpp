@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Arduino.h>
-#include <GameLevel.hpp>
 #include <SoftTimer.hpp>
 #include <HardwareServo.hpp>
 #include <GameConfig.h>
@@ -49,11 +48,9 @@ class Game {
         void prepareGame();
 
         /**
-         * Starts the game at the specified difficulty level. The game will run until the time limit
-         * is reached or the ball reaches the goal.
-         * @param level The difficulty level to start the game at.
+         * Starts the game. The game will run until the time limit is reached or the ball reaches the goal.
          */
-        void start(GameLevel level);
+        void start();
 
         /**
          * Stops a running game and resets the state. The servos will return to the center position.
@@ -96,12 +93,11 @@ class Game {
         bool isReadyToStart() const;
 
         /**
-         * Gets the results of the last completed game, including the level, result (win/loss), and completion time.
-         * @param level Last game level.
+         * Gets the results of the last completed game: result (win/loss) and completion time.
          * @param result Last game result.
          * @param completionTime Last game completion time in milliseconds.
          */
-        void lastGameStats(GameLevel& level, GameResult& result, uint16_t& completionTime) const;
+        void lastGameStats(GameResult& result, uint16_t& completionTime) const;
 
         /**
          * Gets end time for the current game. If the goal is not reached within the time limit, the game will end 
@@ -138,7 +134,6 @@ class Game {
 
         // Current game state
         GameStatus status = GameStatus::NOT_RUNNING;
-        GameLevel currentLevel = GameLevel::EASY;    
         uint16_t currentTimeLimitMs = 0;
         unsigned long startTimeMs = 0;
         unsigned long lastUpdateMs = 0;
@@ -148,11 +143,9 @@ class Game {
         // Last game results
         GameResult lastGameResult = GameResult::NONE;
         uint16_t lastGameCompletionTimeMs = 0;
-        GameLevel lastGameLevel = GameLevel::EASY;
 
         void resetBallDroppedFlag();
         bool consumeBallDroppedFlag();
-        uint16_t getTimeLimitMs(GameLevel level) const;
 
         // Calibration
         bool calibrationInProgress = false;

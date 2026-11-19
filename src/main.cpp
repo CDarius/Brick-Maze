@@ -35,26 +35,10 @@ AudioPlayer audioPlayer(1); // Use I2S port 1. Display uses I2S0 (ESP32) or LCD 
 PuzzleDisplay display(PUZZLE_DISPLAY_PIXEL_PIN);
 HighScore highScore;
 MainDisplay mainDisplay(audioPlayer, display, highScore);
-GameLevel nextGameLevel = GameLevel::EASY;
 bool waitingForGameToStart = false;
 
-GameLevel selectNextGameLevel(GameLevel level) {
-    switch (level) {
-        case GameLevel::EASY:
-            return GameLevel::EASY;
-    }
-
-    return GameLevel::EASY;
-}
-
-uint16_t getCriticalThresholdMs(GameLevel level) {
-    switch (level) {
-        case GameLevel::EASY:
-            return 10000;
-    }
-
-    return 10000;
-}
+// Remaining time below which the countdown is shown as critical
+constexpr uint16_t kCountdownCriticalThresholdMs = 10000;
 
 void showInitFailed(const char* displayMessage, const char* serialMessage) {
     display.clear();
@@ -277,14 +261,11 @@ void loop() {
     }
 }
 
-void displayNextGameLevel() {
+void displayReadyLeds() {
     pbHub.setLEDBrightness(1, 127);
 
     uint32_t ledColor[3] = {0};
-
-    if (nextGameLevel == GameLevel::EASY) {
-        ledColor[2] = 0x00FF00; // Green for easy
-    }
+    ledColor[2] = 0x00FF00; // Green: ready to start
 
     for (int i = 0; i < 3; i++) {
         pbHub.setLEDColor(1, i, ledColor[i]);
@@ -296,18 +277,13 @@ void beforeGame() {
 
     mainDisplay.setNoGameMode();
     controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::NO_GAME);
-    displayNextGameLevel();
+    displayReadyLeds();
 
     while (true) {
         startButton.setRawState(millis(), isStartButtonPressed());
 
         if (startButton.wasSingleClicked()) {
-            if (isStopButtonPressed()) {
-                nextGameLevel = selectNextGameLevel(nextGameLevel);
-                displayNextGameLevel();
-            } else {
-                break;
-            }
+            break;
         }
 
         delay(10);
@@ -325,22 +301,20 @@ bool startGame() {
         delay(50);
     }
 
-    game.start(nextGameLevel);
+    game.start();
 
     unsigned long gameEndTimeMs = game.currentGameEndTimeMs();
     uint16_t gameTimeLimitMs = game.currentGameTimeLimitMs();
-    uint16_t criticalThresholdMs = getCriticalThresholdMs(nextGameLevel);
-    mainDisplay.setCountdownMode(gameEndTimeMs, gameTimeLimitMs, criticalThresholdMs);
+    mainDisplay.setCountdownMode(gameEndTimeMs, gameTimeLimitMs, kCountdownCriticalThresholdMs);
     controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::IN_GAME);
     return true;
 }
 
 void gameEnd() {
-    GameLevel lastGameLevel;
     GameResult lastGameResult;
     uint16_t lastGameCompletionTimeMs;
 
-    game.lastGameStats(lastGameLevel, lastGameResult, lastGameCompletionTimeMs);
+    game.lastGameStats(lastGameResult, lastGameCompletionTimeMs);
 
     if (lastGameResult == GameResult::NONE) {
         // Game was stopped without a win or loss (e.g. by pressing stop button)
@@ -364,12 +338,12 @@ void gameEnd() {
 
     if (lastGameResult == GameResult::WON) {
         // Check if the completion time is a new high score and update if so
-        int8_t rank = highScore.getHighScoreRank(lastGameLevel, lastGameCompletionTimeMs);
+        int8_t rank = highScore.getHighScoreRank(lastGameCompletionTimeMs);
         if (rank >= 0) {
             // Enter player name and show high score celebration animation on the display
             // Press the stop button to cancel the high score submission.
             controllerSerialComm.sendControllerHMIMode(SerialComm::ControllerHMIMode::WRITE_PLAYER_NAME);
-            mainDisplay.setEndGameHighScoreMode(lastGameCompletionTimeMs, lastGameLevel, rank);
+            mainDisplay.setEndGameHighScoreMode(lastGameCompletionTimeMs, rank);
             bool highScoreCancel = false;
             while (!mainDisplay.isModeDone() && !highScoreCancel) {
                 highScoreCancel = isStopButtonPressed();
@@ -383,7 +357,7 @@ void gameEnd() {
                 for (uint8_t i = 0; i < 3 && i < playerName.length(); ++i) {
                     newScore.name[i] = playerName[i];
                 }
-                highScore.write(lastGameLevel, newScore);
+                highScore.write(newScore);
 
                 // Small delay to show the new high score on the high score table before returning to idle state
                 delay(2000);
