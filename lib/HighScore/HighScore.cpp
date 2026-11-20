@@ -133,9 +133,10 @@ bool HighScore::overwriteWithDefaultScores(GameConfig config) {
         return false;
     }
 
-    // Only reset today scores; all-time scores are preserved
+    // Reset both today and all-time scores
     loadDefaultScores(config);
-    return persistTodayScores();
+    loadDefaultAllTimeScores(config);
+    return persistAll();
 }
 
 void HighScore::loadDefaultAllTimeScores(GameConfig config) {
